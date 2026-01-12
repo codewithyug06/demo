@@ -30,8 +30,20 @@ class SpatialEngine:
         if 'lat' not in df.columns or 'lon' not in df.columns:
             return pd.DataFrame()
         
-        # Simple aggregation for heatmap
-        return df[['lat', 'lon', 'total_activity']].copy()
+        try:
+            import h3
+            # Real H3 Indexing
+            df['h3_index'] = df.apply(lambda row: h3.geo_to_h3(row['lat'], row['lon'], resolution), axis=1)
+            hex_data = df.groupby('h3_index').agg({
+                'total_activity': 'sum',
+                'lat': 'mean', # Centroid proxy
+                'lon': 'mean'
+            }).reset_index()
+            return hex_data
+        except ImportError:
+            # Fallback: Simple Grid Aggregation if H3 is missing
+            # This ensures the map never breaks even without the library
+            return df[['lat', 'lon', 'total_activity']].copy()
 
     @staticmethod
     def build_migration_graph(df):

@@ -386,7 +386,7 @@ def render_header_hero(title, sector):
         </div>
         <div style="text-align: right;">
             <div style="font-family: 'Orbitron'; font-size: 2rem; color: {current_theme['text']};">SENTINEL<span style="color:{current_theme['primary']}">PRIME</span></div>
-            <div style="font-size: 0.8rem; color: #666;">SYS.VER.9.0.0 (OMNI)</div>
+            <div style="font-size: 0.8rem; color: #666;">SYS.VER.9.5.0 (OMNI)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -460,14 +460,15 @@ with st.sidebar:
     active_df = master_df 
     
     if view_mode == "DISTRICT LAYER":
-        col_s1, col_s2 = st.columns(2)
-        states = sorted(master_df['state'].unique())
-        selected_state = col_s1.selectbox("STATE", states)
+        # Ensure Unique State List
+        states = sorted(list(set(master_df['state'].dropna().unique())))
+        selected_state = st.selectbox("STATE", states)
         
-        districts = sorted(master_df[master_df['state']==selected_state]['district'].unique())
-        selected_district = col_s2.selectbox("DISTRICT", districts)
-        
-        active_df = get_filtered_data(master_df, selected_state, selected_district)
+        # Ensure Unique District List based on State
+        if selected_state:
+            districts = sorted(list(set(master_df[master_df['state']==selected_state]['district'].dropna().unique())))
+            selected_district = st.selectbox("DISTRICT", districts)
+            active_df = get_filtered_data(master_df, selected_state, selected_district)
     
     st.markdown("---")
     
@@ -599,7 +600,8 @@ with tabs[0]:
     with col_stat:
         st.markdown(f"<div class='hud-card'>", unsafe_allow_html=True)
         st.markdown(f"<h4 style='margin-top:0; color: {current_theme['text']}'>📡 FEED</h4>", unsafe_allow_html=True)
-        st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True, use_container_width=True)
+        # Use simple st.dataframe without deprecated argument
+        st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True)
         st.markdown(f"<div style='font-family: Share Tech Mono; color: #666; font-size: 0.8rem; margin-top: 10px;'>LATENCY: {np.random.randint(12, 45)}ms</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -809,7 +811,7 @@ with tabs[4]:
     if not causal_df.empty:
         c1, c2 = st.columns(2)
         with c1:
-            st.dataframe(causal_df.head(10), use_container_width=True) 
+            st.dataframe(causal_df.head(10), hide_index=True) 
         with c2:
             if 'root_cause' in causal_df.columns:
                 fig = px.pie(causal_df, names='root_cause', title="IMPACT WEIGHTS",
@@ -910,7 +912,7 @@ with tabs[6]:
     if not seg_df.empty and 'cluster_label' in seg_df.columns:
         target_cluster = st.selectbox("TARGET BEHAVIORAL CLUSTER", seg_df['cluster_label'].unique())
         drill_data = seg_df[seg_df['cluster_label'] == target_cluster]
-        st.dataframe(drill_data.head(20), use_container_width=True)
+        st.dataframe(drill_data.head(20), hide_index=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
 
