@@ -3,6 +3,7 @@ import torch.nn as nn
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from config.settings import config
 
 # ==============================================================================
 # 1. LEGACY MODEL (PRESERVED FOR BACKWARD COMPATIBILITY)
@@ -89,6 +90,35 @@ class ForecastEngine:
         
         # Prevent Division by Zero
         return abs(recent - historic) / (historic + 1e-5)
+
+    # ==========================================================================
+    # NEW V9.7 FEATURE: DBT MEGA-LAUNCH SIMULATOR (WARGAME LOGIC)
+    # ==========================================================================
+    def simulate_dbt_mega_launch(self, days=15):
+        """
+        Simulates infrastructure stress during a massive DBT disbursement (e.g., PM-Kisan).
+        Models 5x Load Spike and calculates Latency Penalty.
+        """
+        base = self.generate_forecast(days)
+        if base.empty: return base
+        
+        # Apply Pulse Multiplier (DBT Launch Effect)
+        # Spike occurs on Day 3-5
+        spike_profile = np.ones(days)
+        spike_profile[2:6] = config.DBT_LAUNCH_TRAFFIC_MULTIPLIER 
+        
+        base['Simulated_Load'] = base['Predicted_Load'] * spike_profile
+        
+        # Calculate Server Stress (Latency increases exponentially with Load > 95%)
+        # Standard Capacity = 1.2x of Mean Historic Load
+        capacity = base['Predicted_Load'].mean() * 1.2
+        
+        base['Utilization'] = base['Simulated_Load'] / capacity
+        base['Est_Latency_ms'] = 20 * (1 + np.exp(5 * (base['Utilization'] - 1))) # Sigmoid penalty
+        
+        base['Risk_Status'] = base['Utilization'].apply(lambda x: "CRITICAL FAILURE" if x > config.INFRA_FAILURE_POINT else "STABLE")
+        
+        return base
 
 # ==============================================================================
 # 2. GOD-LEVEL MODEL: BI-DIRECTIONAL LSTM WITH TEMPORAL ATTENTION

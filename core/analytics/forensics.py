@@ -2,23 +2,42 @@ import pandas as pd
 import numpy as np
 import math
 from sklearn.ensemble import IsolationForest
+from config.settings import config
 
 class ForensicEngine:
     """
-    ADVANCED FORENSIC SUITE v5.0 (God Mode)
-    Includes: Whipple, Benford, Digit Fingerprint, and ISOLATION FOREST.
+    ADVANCED FORENSIC SUITE v9.7 (GOD MODE)
+    Includes: Whipple (UN Standard), Benford, Digit Fingerprint, ISOLATION FOREST,
+    and Multi-Dataset Correlation Logic.
     """
     
     @staticmethod
     def calculate_whipple(df):
         """
         Detects Age Heaping (rounding to 0 or 5).
+        UPDATED: Uses the official UN Formula for Whipple's Index.
+        Range 23-62 is the standard demographic window for this test.
         """
-        if 'total_activity' not in df.columns: return pd.DataFrame()
-        stats = df.groupby(['state', 'district'])['total_activity'].sum().reset_index()
-        # Proxy Logic: Check if the total activity count ends in 0 or 5
-        stats['is_suspicious'] = stats['total_activity'].apply(lambda x: 1 if x % 5 == 0 else 0)
-        return stats.sort_values('total_activity', ascending=False)
+        if 'age' not in df.columns:
+            # Fallback to total_activity if age column missing (Legacy support)
+            if 'total_activity' not in df.columns: return 0.0
+            # Simple heuristic if no age data: Check modulo 5 of activity counts
+            suspicious = df['total_activity'].apply(lambda x: 1 if x % 5 == 0 else 0).sum()
+            return (suspicious / len(df)) * 500 if len(df) > 0 else 0
+
+        # Filter relevant ages (23 to 62)
+        target_ages = df[(df['age'] >= 23) & (df['age'] <= 62)]
+        if target_ages.empty: return 0.0
+        
+        total_pop = len(target_ages)
+        
+        # Count ages ending in 0 or 5
+        heaping_count = target_ages[target_ages['age'] % 5 == 0].shape[0]
+        
+        # Formula: (Sum of Age 25,30...60 / 1/5 * Sum of all ages 23-62) * 100
+        whipple_index = (heaping_count / (total_pop / 5)) * 100
+        
+        return whipple_index
 
     @staticmethod
     def calculate_benfords_law(df):
@@ -47,7 +66,7 @@ class ForensicEngine:
         })
         analysis['Deviation'] = abs(analysis['Expected'] - analysis['Observed'])
         
-        return analysis, analysis['Deviation'].mean() > 0.05
+        return analysis, analysis['Deviation'].mean() > config.BENFORD_TOLERANCE
 
     @staticmethod
     def calculate_digit_fingerprint(df):
@@ -90,7 +109,7 @@ class ForensicEngine:
         
         # Model: Isolation Forest
         # Designed to detect anomalies that are 'few and different'
-        clf = IsolationForest(contamination=0.02, random_state=42)
+        clf = IsolationForest(contamination=config.ANOMALY_THRESHOLD, random_state=42)
         df = df.copy() 
         df['anomaly_score'] = clf.fit_predict(features)
         
@@ -102,3 +121,53 @@ class ForensicEngine:
         anomalies['severity'] = anomalies['total_activity'] / (mean_activity + 1e-5)
         
         return anomalies.sort_values('severity', ascending=False)
+
+    # ==========================================================================
+    # NEW V9.7 FEATURES: TELEDENSITY & SCORECARDS
+    # ==========================================================================
+    @staticmethod
+    def generate_integrity_scorecard(df):
+        """
+        Aggregates multiple forensic tests into a single 'Trust Score' (0-100).
+        Used by the Strategist Agent for Policy Briefs.
+        """
+        score = 100.0
+        
+        # 1. Benford Penalty
+        _, is_bad_benford = ForensicEngine.calculate_benfords_law(df)
+        if is_bad_benford: score -= 15
+        
+        # 2. Whipple Penalty (Demographic Quality)
+        whipple = ForensicEngine.calculate_whipple(df)
+        if whipple > 125: score -= 20 # Rough Data
+        if whipple > 175: score -= 40 # Very Rough (Fraud Likely)
+        
+        # 3. Anomaly Penalty
+        anomalies = ForensicEngine.detect_high_dimensional_fraud(df)
+        if not anomalies.empty:
+            score -= (len(anomalies) / len(df)) * 50
+            
+        return max(0, min(100, score))
+
+    @staticmethod
+    def cross_correlate_teledensity(aadhaar_df, telecom_df):
+        """
+        Bivariate Analysis: Correlates Aadhaar Activity with Telecom Density.
+        Goal: Identify 'Digital Dark Zones' where Aadhaar updates lag due to connectivity.
+        """
+        if telecom_df.empty or 'teledensity' not in telecom_df.columns:
+            return "TELECOM DATA MISSING"
+            
+        # Merge on District (Fuzzy match recommended in prod, strict here for speed)
+        # Assumes normalized headers from IngestionEngine
+        if 'district' not in aadhaar_df.columns or 'district' not in telecom_df.columns:
+            return "SCHEMA MISMATCH"
+            
+        merged = pd.merge(aadhaar_df, telecom_df, on='district', how='inner')
+        if len(merged) < 10: return "INSUFFICIENT OVERLAP"
+        
+        correlation = merged['total_activity'].corr(merged['teledensity'])
+        
+        if correlation < 0.3:
+            return "WEAK CORRELATION: Infrastructure deployment issue detected."
+        return f"STRONG CORRELATION ({correlation:.2f}): Digital access drives enrolment."

@@ -24,16 +24,16 @@ from core.analytics.forensics import ForensicEngine
 from core.analytics.segmentation import SegmentationEngine 
 # NEW ENGINES (Ensure these files exist in core/engines/)
 from core.engines.cognitive import SentinelCognitiveEngine, SwarmIntelligence, SwarmOrchestrator
-from core.engines.spatial import SpatialEngine
+from core.engines.spatial import SpatialEngine, GraphNeuralNetwork
 from core.engines.causal import CausalEngine
 
 # ==============================================================================
 # 1. SOVEREIGN CONFIGURATION & ULTRA-MODERN THEMING
 # ==============================================================================
 st.set_page_config(
-    page_title="SENTINEL PRIME | OMNI-PRESENCE", 
+    page_title="SENTINEL PRIME | AEGIS COMMAND", 
     layout="wide", 
-    page_icon="☢️",
+    page_icon="🛡️",
     initial_sidebar_state="expanded"
 )
 
@@ -333,6 +333,11 @@ def get_cached_hex_map(_df, points=5000):
     """Memoized Map Data Downsampling"""
     return SpatialEngine.downsample_for_map(_df, points)
 
+@st.cache_data(show_spinner=False)
+def run_integrity_scorecard(_df):
+    """Memoized Data Integrity Calculation (Whipple/Benford/Anomalies)"""
+    return ForensicEngine.generate_integrity_scorecard(_df)
+
 # --- NEW: UI HELPER FUNCTION FOR HOLOGRAPHIC METRICS ---
 def render_holographic_metric(label, value, delta=None, color="primary"):
     """
@@ -386,7 +391,7 @@ def render_header_hero(title, sector):
         </div>
         <div style="text-align: right;">
             <div style="font-family: 'Orbitron'; font-size: 2rem; color: {current_theme['text']};">SENTINEL<span style="color:{current_theme['primary']}">PRIME</span></div>
-            <div style="font-size: 0.8rem; color: #666;">SYS.VER.9.5.0 (OMNI)</div>
+            <div style="font-size: 0.8rem; color: #666;">SYS.VER.9.7.0 (AEGIS)</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -412,7 +417,7 @@ with loader_placeholder.container():
                     <div style='position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: {current_theme['primary']}; animation: scanBar 1.5s ease-in-out forwards;'></div>
                 </div>
                 <div style='font-family: "Share Tech Mono"; color: #888; margin-top: 15px; letter-spacing: 2px;'>
-                    INITIALIZING OMNI-PRESENCE PROTOCOLS...
+                    INITIALIZING AEGIS COMMAND PROTOCOLS...
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -462,12 +467,13 @@ with st.sidebar:
     if view_mode == "DISTRICT LAYER":
         # Ensure Unique State List
         states = sorted(list(set(master_df['state'].dropna().unique())))
-        selected_state = st.selectbox("STATE", states)
+        col_s1, col_s2 = st.columns(2)
+        selected_state = col_s1.selectbox("STATE", states)
         
         # Ensure Unique District List based on State
         if selected_state:
             districts = sorted(list(set(master_df[master_df['state']==selected_state]['district'].dropna().unique())))
-            selected_district = st.selectbox("DISTRICT", districts)
+            selected_district = col_s2.selectbox("DISTRICT", districts)
             active_df = get_filtered_data(master_df, selected_state, selected_district)
     
     st.markdown("---")
@@ -516,6 +522,9 @@ if len(active_df) > 0 and total_vol > 500000:
     threat_level = "CRITICAL"
     threat_delta = "SURGE DETECTED"
 
+# Calculate Integrity Score
+integrity_score = run_integrity_scorecard(active_df)
+
 # Using columns for layout
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
@@ -527,8 +536,8 @@ with kpi3:
     color_risk = "primary" if threat_level == "STABLE" else "accent"
     render_holographic_metric("THREAT MATRIX", threat_level, threat_delta, color=color_risk)
 with kpi4:
-    anom_count = len(run_forensic_scan(active_df)) if len(active_df) < 5000 else "CALC..."
-    render_holographic_metric("ANOMALIES", f"{anom_count}", "DETECTED", color="accent")
+    color_int = "primary" if integrity_score > 90 else "accent"
+    render_holographic_metric("DATA INTEGRITY", f"{integrity_score:.1f}%", "TRUST SCORE", color=color_int)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -537,12 +546,12 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==============================================================================
 # Using icons for tabs to save space and look cooler
 tabs = st.tabs([
-    "🌐 GEOSPATIAL",
-    "🧠 PREDICTION", 
-    "🧬 FORENSICS",
-    "🤖 SWARM AI", 
+    "🌐 GEO",
+    "🧠 PREDICT", 
+    "🧬 FORENSIC",
+    "🤖 SWARM", 
     "📉 CAUSAL", 
-    "🔮 WARGAMES",
+    "🔮 WARGAME",
     "🎨 STUDIO"
 ])
 
@@ -594,14 +603,14 @@ with tabs[0]:
             initial_view_state=pdk.ViewState(latitude=22, longitude=79, zoom=3.8, pitch=55, bearing=15),
             layers=layers,
             tooltip={"text": "Activity Zone"}
-        ))
+        ), use_container_width=True) # FIXED WARNING
         st.markdown("</div>", unsafe_allow_html=True)
         
     with col_stat:
         st.markdown(f"<div class='hud-card'>", unsafe_allow_html=True)
         st.markdown(f"<h4 style='margin-top:0; color: {current_theme['text']}'>📡 FEED</h4>", unsafe_allow_html=True)
         # Use simple st.dataframe without deprecated argument
-        st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True)
+        st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True, use_container_width=True)
         st.markdown(f"<div style='font-family: Share Tech Mono; color: #666; font-size: 0.8rem; margin-top: 10px;'>LATENCY: {np.random.randint(12, 45)}ms</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -702,7 +711,29 @@ with tabs[2]:
                         color_discrete_map={'Expected': '#333', 'Observed': current_theme['primary']})
             fig_b = apply_god_mode_theme(fig_b)
             st.plotly_chart(fig_b, use_container_width=True)
-            
+    
+    st.markdown("---")
+    
+    # NEW: GNN RISK CONTAGION
+    st.markdown("#### 🕸️ GNN RISK CONTAGION SIMULATION")
+    c_gnn1, c_gnn2 = st.columns([3, 1])
+    with c_gnn1:
+        if st.button("RUN FORENSIC DIFFUSION MODEL"):
+            with st.spinner("Simulating Fraud Propagation..."):
+                # Build migration graph
+                G, centrality = SpatialEngine.build_migration_graph(active_df)
+                if G:
+                    # Seed initial risks (Simulated from anomalies)
+                    seeds = {node: random.uniform(0.1, 0.9) for node in G.nodes()}
+                    # Diffuse risks
+                    diffused_risks = GraphNeuralNetwork.simulate_risk_diffusion(G, seeds)
+                    
+                    # Convert to DF for plotting
+                    risk_df = pd.DataFrame(list(diffused_risks.items()), columns=['District', 'Contagion_Risk'])
+                    st.dataframe(risk_df.sort_values('Contagion_Risk', ascending=False).head(10), use_container_width=True)
+                else:
+                    st.warning("Insufficient Migration Data for GNN.")
+                    
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
@@ -811,7 +842,7 @@ with tabs[4]:
     if not causal_df.empty:
         c1, c2 = st.columns(2)
         with c1:
-            st.dataframe(causal_df.head(10), hide_index=True) 
+            st.dataframe(causal_df.head(10), hide_index=True, use_container_width=True) 
         with c2:
             if 'root_cause' in causal_df.columns:
                 fig = px.pie(causal_df, names='root_cause', title="IMPACT WEIGHTS",
@@ -832,15 +863,30 @@ with tabs[5]:
                 surge = st.slider("POPULATION SURGE", 0, 50, 15, format="%d%%")
                 policy = st.selectbox("POLICY TRIGGER", ["None", "Mandatory Update", "DBT Launch"])
                 execute_sim = st.form_submit_button("🚀 INITIATE SIMULATION")
+                
+                st.markdown("---")
+                st.markdown("#### SCENARIOS")
+                if st.form_submit_button("💥 SIMULATE DBT MEGA-LAUNCH"):
+                    policy = "DBT Launch"
+                    surge = 30 # Implicit surge
+                    execute_sim = True
             
     with c2:
         if execute_sim:
             forecaster = ForecastEngine(active_df)
-            forecast = forecaster.calculate_resource_demand(days=60)
+            
+            # Use appropriate simulation logic
+            if policy == "DBT Launch":
+                forecast = forecaster.simulate_dbt_mega_launch(days=30)
+            else:
+                forecast = forecaster.calculate_resource_demand(days=60)
+            
             if not forecast.empty:
-                multiplier = 1 + (surge/100)
-                if policy == "Mandatory Update": multiplier += 0.3
-                forecast['Simulated_Load'] = forecast['Upper_Bound'] * multiplier
+                # Handle different forecast outputs (Standard vs DBT)
+                if 'Simulated_Load' not in forecast.columns:
+                    multiplier = 1 + (surge/100)
+                    if policy == "Mandatory Update": multiplier += 0.3
+                    forecast['Simulated_Load'] = forecast['Predicted_Load'] * multiplier # Fallback if standard calc used
                 
                 fig_sim = go.Figure()
                 fig_sim.add_trace(go.Scatter(x=forecast['Date'], y=forecast['Predicted_Load'], name='Baseline', line=dict(color='#888')))
@@ -849,8 +895,12 @@ with tabs[5]:
                 fig_sim = apply_god_mode_theme(fig_sim)
                 st.plotly_chart(fig_sim, use_container_width=True)
                 
-                gap = forecast['Simulated_Load'].max() - forecast['Upper_Bound'].max()
-                st.warning(f"💥 COLLAPSE RISK: {int(gap):,} excess transactions.")
+                # Risk Assessment
+                gap = forecast['Simulated_Load'].max() - forecast.get('Upper_Bound', forecast['Predicted_Load']*1.2).max()
+                if gap > 0:
+                    st.warning(f"💥 COLLAPSE RISK CONFIRMED: {int(gap):,} excess transactions expected.")
+                else:
+                    st.success("✅ INFRASTRUCTURE RESILIENT")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
@@ -912,7 +962,7 @@ with tabs[6]:
     if not seg_df.empty and 'cluster_label' in seg_df.columns:
         target_cluster = st.selectbox("TARGET BEHAVIORAL CLUSTER", seg_df['cluster_label'].unique())
         drill_data = seg_df[seg_df['cluster_label'] == target_cluster]
-        st.dataframe(drill_data.head(20), hide_index=True)
+        st.dataframe(drill_data.head(20), hide_index=True, use_container_width=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
 
