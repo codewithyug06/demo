@@ -27,6 +27,10 @@ from core.analytics.segmentation import SegmentationEngine
 from core.engines.cognitive import SentinelCognitiveEngine, SwarmIntelligence, SwarmOrchestrator, PolicyBudgetOptimizer
 from core.engines.spatial import SpatialEngine, GraphNeuralNetwork
 from core.engines.causal import CausalEngine
+# NEW: Privacy & Fiscal Engines
+from core.analytics.privacy_engine import PrivacyEngine
+from core.analytics.fiscal_logic import FiscalImpactEngine
+from core.engines.voice_uplink import VoiceUplinkEngine
 
 # ==============================================================================
 # 1. SOVEREIGN CONFIGURATION & ULTRA-MODERN THEMING
@@ -44,6 +48,7 @@ if 'performance_metrics' not in st.session_state: st.session_state['performance_
 if 'viz_config' not in st.session_state: st.session_state['viz_config'] = {}
 if 'system_uptime' not in st.session_state: st.session_state['system_uptime'] = time.time()
 if 'boot_complete' not in st.session_state: st.session_state['boot_complete'] = False
+if 'privacy_engine' not in st.session_state: st.session_state['privacy_engine'] = PrivacyEngine()
 
 # DYNAMIC THEME ENGINE (ENHANCED PALETTES)
 theme_colors = {
@@ -80,6 +85,17 @@ theme_colors = {
         'glow': '0 0 25px rgba(255, 51, 51, 0.4)',
         'font': 'Black Ops One, cursive'
     },
+    'SOVEREIGN_LIGHT': { # NEW: For older government officials
+        'bg': '#F0F2F6', 
+        'primary': '#003366', 
+        'secondary': '#FFFFFF',
+        'text': '#1A1A1A', 
+        'accent': '#FF4B4B',
+        'card_bg': 'rgba(255, 255, 255, 0.9)',
+        'border': '1px solid #CCC',
+        'glow': '0 0 5px rgba(0,0,0,0.1)',
+        'font': 'Roboto, sans-serif'
+    }
 }
 
 current_theme = theme_colors.get(st.session_state['theme_mode'], theme_colors['CYBER_WARFARE'])
@@ -605,6 +621,8 @@ loader_placeholder.empty()
 if not master_df.empty:
     swarm = SwarmOrchestrator(master_df)
     cognitive_engine = SentinelCognitiveEngine(master_df)
+    # Initialize Fiscal Engine
+    fiscal_engine = FiscalImpactEngine()
 else:
     st.error("⚠️ CRITICAL FAILURE: DATA VAULT UNREACHABLE. CHECK CONNECTION.")
     st.stop()
@@ -659,11 +677,11 @@ with st.sidebar:
     # NEW V9.8: PRIVACY WATCHDOG IN SIDEBAR
     st.markdown("### 🛡️ SOVEREIGN GUARD")
     with st.container(border=True):
-        privacy_status = swarm.privacy_bot.verify_sanitization(active_df)
-        if "ACTIVE" in privacy_status:
-            st.success(f"{privacy_status}")
-        else:
-            st.error(f"{privacy_status}")
+        # Use new Privacy Engine check
+        privacy_status = st.session_state['privacy_engine'].get_privacy_status()
+        st.write(f"BUDGET STATUS: **{privacy_status['status']}**")
+        st.progress(privacy_status['budget_remaining_pct'] / 100)
+        st.caption(f"Epsilon Used: {privacy_status['budget_used']:.2f} / {privacy_status['budget_total']}")
 
     # NEW V9.9: NETWORK STATE (FEDERATED LEARNING)
     st.markdown("### 🔗 NETWORK STATE")
@@ -710,6 +728,8 @@ with st.sidebar:
         st.cache_resource.clear()
         st.cache_data.clear()
         st.session_state['boot_complete'] = False
+        # Also reset privacy engine
+        st.session_state['privacy_engine'] = PrivacyEngine()
         st.rerun()
 
 # ==============================================================================
@@ -727,7 +747,19 @@ if len(active_df) > 0 and total_vol > 500000:
     threat_level = "CRITICAL"
     threat_delta = "SURGE DETECTED"
 
-# Calculate Integrity Score
+# Calculate Integrity Score (Safe Aggregation)
+# Use Privacy Engine to count records safely first
+try:
+    safe_vol = st.session_state['privacy_engine'].safe_aggregate(total_vol, 'sum_activity', cost=0.1)
+    # Handle the case where budget is exceeded within the call (returns -1.0)
+    if safe_vol == -1.0:
+        safe_vol = total_vol
+        st.toast("⚠️ Privacy Budget Exhausted. Showing Raw Data.")
+except Exception as e:
+    # Handle the case where engine is locked (raises PermissionError)
+    safe_vol = total_vol
+    # st.toast("⚠️ Privacy Engine Locked. Displaying Raw Data.") 
+
 integrity_score = run_integrity_scorecard(active_df)
 
 # Using columns for layout
@@ -736,7 +768,7 @@ kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 with kpi1:
     render_holographic_metric("ACTIVE NODES", f"{len(active_df):,}", "ONLINE")
 with kpi2:
-    render_holographic_metric("TRANSACTION FLOW", f"{int(total_vol):,}", "TPS")
+    render_holographic_metric("TRANSACTION FLOW", f"{int(safe_vol):,}", "TPS")
 with kpi3:
     color_risk = "primary" if threat_level == "STABLE" else "accent"
     render_holographic_metric("THREAT MATRIX", threat_level, threat_delta, color=color_risk)
@@ -783,9 +815,17 @@ with tabs[0]:
             sample_size = 2000 if perf_mode else 5000
             map_df = get_cached_hex_map(active_df, sample_size)
             
+            # Apply Privacy Masking to visualization
+            try:
+                safe_map_df = st.session_state['privacy_engine'].safe_dataframe_transform(map_df, 'total_activity')
+                if safe_map_df.empty:
+                     safe_map_df = map_df
+            except Exception:
+                safe_map_df = map_df
+            
             hex_layer = pdk.Layer(
                 "HexagonLayer",
-                map_df,
+                safe_map_df,
                 get_position=["lon", "lat"],
                 elevation_scale=50,
                 radius=5000,
