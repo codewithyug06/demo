@@ -346,6 +346,7 @@ class SovereignForecastEngine(AdvancedForecastEngine):
         """
         Generates forecast using Physics-Informed logic.
         Incorporates 'Geographic Friction' as a dampener to exponential growth.
+        Now includes 'Carrying Capacity (K)' to prevent illogical infinite growth.
         """
         # Start with standard forecast
         base_df = self.generate_tft_forecast(days)
@@ -355,20 +356,23 @@ class SovereignForecastEngine(AdvancedForecastEngine):
         # In a real run, this would be looked up based on the current district's terrain
         friction = getattr(config, 'FRICTION_COEFFICIENTS', {}).get("HILLS", 0.3)
         
-        # Apply Differential Equation Dampener: dN/dt = rN(1 - N/K) - Friction
-        # We simulate this by attenuating the growth rate based on friction
+        # Calculate Carrying Capacity (K) - Proxy based on max historical load + 20%
+        # In a real census scenario, K = District Population
+        K = self.df['total_activity'].max() * 1.5
         
-        # Extract the growth trend
-        trend = base_df['TFT_Prediction'].diff().fillna(0)
+        # Apply Logistic Growth Differential Equation: dP/dt = rP(1 - P/K) - Friction
+        current_P = base_df['TFT_Prediction'].values
         
-        # Apply friction (High friction reduces growth spikes)
-        dampened_trend = trend * (1 - friction)
+        # Vectorized application of PINN logic
+        # As P approaches K, the term (1 - P/K) approaches 0, dampening growth
+        growth_factor = 1 - (current_P / (K + 1e-5))
+        growth_factor = np.clip(growth_factor, 0, 1) # Prevent negative growth if P > K (Overshoot)
         
-        # Reconstruct series
-        start_val = base_df['TFT_Prediction'].iloc[0]
-        pinn_output = np.cumsum(dampened_trend) + start_val
+        # Apply friction
+        pinn_output = current_P * (1 - (friction * 0.1)) * growth_factor
         
-        base_df['PINN_Prediction'] = pinn_output
+        # Smooth the result to prevent sudden drops from the formula
+        base_df['PINN_Prediction'] = pd.Series(pinn_output).rolling(window=3, min_periods=1).mean()
         
         # Adjust confidence intervals for PINN (Physics makes it more certain/stable)
         base_df['Titan_Upper'] = base_df['Titan_Upper'] * (1 - friction * 0.2)

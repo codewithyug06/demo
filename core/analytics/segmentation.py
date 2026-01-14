@@ -33,7 +33,10 @@ class SegmentationEngine:
         
         # Flatten columns
         district_stats.columns = ['state', 'district', 'total_volume', 'volatility', 'daily_avg']
-        district_stats = district_stats.fillna(0)
+        
+        # FIX: Fill NaNs ONLY in numeric columns to avoid Categorical type errors
+        numeric_cols = ['total_volume', 'volatility', 'daily_avg']
+        district_stats[numeric_cols] = district_stats[numeric_cols].fillna(0)
         
         # --- FAIL-SAFE LOGIC ---
         # If not enough data for K-Means, assign a default label and return immediately
@@ -97,7 +100,11 @@ class SegmentationEngine:
             'total_activity': 'sum',
             'lat': 'mean',
             'lon': 'mean'
-        }).reset_index().fillna(0)
+        }).reset_index()
+        
+        # FIX: Fill NaNs in numeric columns only
+        cols_to_fix = ['total_activity', 'lat', 'lon']
+        stats[cols_to_fix] = stats[cols_to_fix].fillna(0)
         
         if len(stats) < 10: return stats # Not enough for density scan
         
@@ -153,7 +160,9 @@ class SegmentationEngine:
             'total_activity': ['sum', 'std']
         }).reset_index()
         stats.columns = ['district', 'vol', 'std']
-        stats = stats.fillna(0)
+        
+        # FIX: Numeric Fill
+        stats[['vol', 'std']] = stats[['vol', 'std']].fillna(0)
         
         # 2. Normalization (MinMax to 0-1 range)
         scaler = MinMaxScaler()
@@ -279,3 +288,17 @@ class SegmentationEngine:
         centroids['priority'] = "HIGH (Vulnerable Group)"
         
         return centroids
+    
+    @staticmethod
+    def calculate_cluster_roi(df):
+        """
+        NEW V9.9: Helper to calculate potential ROI for a cluster.
+        Used by the Fiscal Optimizer Agent.
+        """
+        if df.empty or 'saturation_score' not in df.columns: return pd.DataFrame()
+        
+        # Lower saturation = Higher Potential ROI for intervention
+        # ROI proxy = (1 - Saturation) * Population_Density_Proxy (Volume)
+        df['potential_roi_index'] = (1 - df['saturation_score']) * df['vol_norm']
+        
+        return df.sort_values('potential_roi_index', ascending=False)

@@ -179,7 +179,9 @@ class AadhaarActRAGHandler:
             "security": "Section 28 (Security and Confidentiality of Information)",
             "sharing": "Section 29(3) (No sharing without consent)",
             "children": "Section 3A (Aadhaar number of children)",
-            "enrollment": "Section 3 (Aadhaar Enrolment process)"
+            "enrollment": "Section 3 (Aadhaar Enrolment process)",
+            "penalty": "Section 40 (Penalty for unauthorised access to Central Identities Data Repository)",
+            "consent": "DPDP Act Section 6 (Consent must be free, specific, informed, and unconditional)"
         }
 
     def check_compliance(self, directive_text):
@@ -231,15 +233,15 @@ class PolicyBudgetOptimizer:
         
         # Calculate Scenarios
         # Scenario A: Static Kits
-        kits_needed = int(target['gap'] / 2000) # 2000 enrolments per kit per year
+        kits_needed = max(1, int(target['gap'] / 2000)) # 2000 enrolments per kit per year
         cost_a = kits_needed * cost_kit
         
         # Scenario B: Mobile Vans (More expensive but higher reach in rural)
-        vans_needed = int(kits_needed / 2) # Vans are 2x more effective
+        vans_needed = max(1, int(kits_needed / 2)) # Vans are 2x more effective
         cost_b = vans_needed * cost_van
         
         # ROI
-        impact_value = (target['gap'] / df['total_activity'].sum()) * val_sat * 100
+        impact_value = (target['gap'] / (df['total_activity'].sum() + 1)) * val_sat * 100
         
         return {
             "Target_District": target['district'],
@@ -307,7 +309,8 @@ class VoiceInterfaceSimulator:
             "detected_intent": intent,
             "entity": entity,
             "confidence": 0.98,
-            "processing_time": "0.4s"
+            "processing_time": "0.4s",
+            "sentiment": "URGENT" if random.random() > 0.7 else "NEUTRAL"
         }
 
 # ==============================================================================

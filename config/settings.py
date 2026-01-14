@@ -8,7 +8,7 @@ class Config:
     Acts as the central nervous system for the Sovereign Digital Twin.
     
     COMPLIANCE: UIDAI Data Security Guidelines 2026 (Internal Only)
-    ARCH: Zero-Trust / Local-First / Sovereign
+    ARCH: Zero-Trust / Local-First / Sovereign / Cloud-Native
     """
     
     # ==========================================================================
@@ -17,18 +17,22 @@ class Config:
     BASE_DIR = Path(__file__).parent.parent
     
     # Data Lake Paths (Ingestion Layer)
-    DATA_DIR = BASE_DIR / "data" / "raw"
-    PROCESSED_DIR = BASE_DIR / "data" / "processed"
+    # Allow overriding via env vars for containerized deployments
+    DATA_DIR = Path(os.getenv("SENTINEL_DATA_DIR", BASE_DIR / "data" / "raw"))
+    PROCESSED_DIR = Path(os.getenv("SENTINEL_PROCESSED_DIR", BASE_DIR / "data" / "processed"))
     
     # Sovereign Storage (Local RAG & Logs)
-    VECTOR_DB_PATH = BASE_DIR / "data" / "chromadb_store"
-    LOGS_DIR = BASE_DIR / "logs"
-    REPORTS_DIR = BASE_DIR / "reports"  # For generated Executive PDFs
-    ASSETS_DIR = BASE_DIR / "assets"    # For Logos/Fonts in PDF generation
+    VECTOR_DB_PATH = Path(os.getenv("SENTINEL_VECTOR_DB", BASE_DIR / "data" / "chromadb_store"))
+    LOGS_DIR = Path(os.getenv("SENTINEL_LOGS_DIR", BASE_DIR / "logs"))
+    REPORTS_DIR = Path(os.getenv("SENTINEL_REPORTS_DIR", BASE_DIR / "reports"))  # For generated Executive PDFs
+    ASSETS_DIR = Path(os.getenv("SENTINEL_ASSETS_DIR", BASE_DIR / "assets"))    # For Logos/Fonts in PDF generation
     
     # Create critical directories if they don't exist
     for _dir in [PROCESSED_DIR, LOGS_DIR, REPORTS_DIR, ASSETS_DIR, VECTOR_DB_PATH]:
-        _dir.mkdir(parents=True, exist_ok=True)
+        try:
+            _dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create directory {_dir}: {e}")
 
     # ==========================================================================
     # 2. SOVEREIGN VISUAL IDENTITY (OMNI-PRESENCE THEME)
@@ -59,13 +63,13 @@ class Config:
     # 3. AI HYPERPARAMETERS & NEURAL CONFIG
     # ==========================================================================
     # Legacy LSTM (Bi-Directional)
-    LSTM_HIDDEN_SIZE = 64
-    LSTM_LAYERS = 2
+    LSTM_HIDDEN_SIZE = int(os.getenv("LSTM_HIDDEN_SIZE", 64))
+    LSTM_LAYERS = int(os.getenv("LSTM_LAYERS", 2))
     
     # V8.0 Temporal Fusion Transformer (TFT) - Explainable AI
-    TFT_HIDDEN_SIZE = 128
-    TFT_ATTENTION_HEADS = 4
-    TFT_DROPOUT = 0.1
+    TFT_HIDDEN_SIZE = int(os.getenv("TFT_HIDDEN_SIZE", 128))
+    TFT_ATTENTION_HEADS = int(os.getenv("TFT_HEADS", 4))
+    TFT_DROPOUT = float(os.getenv("TFT_DROPOUT", 0.1))
     
     # Probabilistic Forecasting (Confidence Tunnel)
     QUANTILE_LEVELS = [0.1, 0.5, 0.9] # p10 (Lower), p50 (Median), p90 (Upper)
@@ -76,7 +80,7 @@ class Config:
     
     # NEW V9.8: Bayesian Neural Network (BNN) - Uncertainty Quantification
     BNN_CONFIDENCE_INTERVAL = 0.95  # 95% Confidence required for auto-approval
-    BNN_MC_DROPOUT_SAMPLES = 50     # Number of Monte Carlo samples for uncertainty
+    BNN_MC_DROPOUT_SAMPLES = int(os.getenv("BNN_SAMPLES", 50))     # Number of Monte Carlo samples for uncertainty
     
     # NEW V9.8: Spatiotemporal GCN (ST-GCN)
     STGCN_TEMPORAL_WINDOW = 7       # Look back 7 days for spatial contagion
@@ -85,7 +89,7 @@ class Config:
     # 4. FORENSIC & INTEGRITY THRESHOLDS (WINNING CRITERIA)
     # ==========================================================================
     # Anomaly Detection
-    ANOMALY_THRESHOLD = 0.01        # Isolation Forest Contamination Rate
+    ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", 0.01))        # Isolation Forest Contamination Rate
     
     # Benford's Law (Digit Frequency Analysis)
     BENFORD_TOLERANCE = 0.05        # Max allowed deviation (5%) before flagging
@@ -111,7 +115,7 @@ class Config:
     }
     
     # NEW V9.8: Zero-Knowledge Proof (ZKP) Parameters
-    ZKP_PROTOCOL_SEED = 42          # Seed for cryptographic simulation
+    ZKP_PROTOCOL_SEED = int(os.getenv("ZKP_SEED", 42))          # Seed for cryptographic simulation
     ZKP_VALIDATION_STRENGTH = "SHA-256"
     
     # NEW V9.8: Adversarial Robustness
@@ -144,7 +148,7 @@ class Config:
     DEFAULT_ROLE = "Director General"
     
     # Sovereign Privacy Flags (GDPR/Data Protection Bill Compliant)
-    MASK_PII = True                 # Force-mask Aadhaar/Mobile numbers in ingestion
+    MASK_PII = os.getenv("MASK_PII", "True").lower() == "true" # Force-mask Aadhaar/Mobile numbers in ingestion
     LOCAL_COMPUTE_ONLY = True       # Prevent accidental cloud uploads
     
     # Regex Patterns for PII Sanitization (High-Speed Filtering)
@@ -164,7 +168,7 @@ class Config:
     
     # Local LLM Endpoint (Ollama - Sovereign AI)
     # This enables RAG without sending data to OpenAI
-    OLLAMA_ENDPOINT = "http://localhost:11434/api/generate"
+    OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434/api/generate")
     DEFAULT_LLM_MODEL = "llama3"
     
     # Vector DB Config (Legal-RAG)
@@ -261,10 +265,10 @@ class Config:
     # 16. DISTRIBUTED COMPUTE CLUSTER (NEW V9.9)
     # ==========================================================================
     # Dask / Ray Cluster Configuration
-    COMPUTE_BACKEND = "dask" # Options: "dask", "ray", "local"
+    COMPUTE_BACKEND = os.getenv("COMPUTE_BACKEND", "local") # Options: "dask", "ray", "local"
     DASK_SCHEDULER_PORT = 8786
     RAY_DASHBOARD_PORT = 8265
-    NUM_WORKERS = 4 # Default for local simulation
+    NUM_WORKERS = int(os.getenv("NUM_WORKERS", 4)) # Default for local simulation
     
     # ==========================================================================
     # 17. OPERATOR TRUST SCORING (NEW V9.9)

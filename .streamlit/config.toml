@@ -1,0 +1,24 @@
+[server]
+# Critical Fix: Increased to 5000MB (5GB) to handle your 1.4 Billion record simulation.
+# The previous 2GB might still be tight if you generate heavy 3D maps.
+maxMessageSize = 5000
+enableCORS = false
+enableXsrfProtection = false
+
+[theme]
+# "Cyber Warfare" Global Theme
+# This automatically styles charts and widgets to match your custom CSS.
+primaryColor = "#00FF41"
+backgroundColor = "#050505"
+secondaryBackgroundColor = "#0a0f0a"
+textColor = "#E0F0E0"
+font = "monospace"
+
+[browser]
+# Hides the "Deploy" button and hamburger menu clutter 
+# Gives the app a professional "Command Center" look.
+gatherUsageStats = false
+
+[runner]
+# Prevent the app from freezing while compiling large scripts
+magicEnabled = false

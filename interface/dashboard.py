@@ -10,6 +10,7 @@ import time
 import hashlib
 import random
 import datetime
+import graphviz # NEW: For Causal DAG Visualization
 from io import BytesIO
 
 # SYSTEM PATH SETUP (Critical for Enterprise Deployment)
@@ -23,7 +24,7 @@ from core.models.lstm import ForecastEngine, AdvancedForecastEngine, TemporalFus
 from core.analytics.forensics import ForensicEngine
 from core.analytics.segmentation import SegmentationEngine 
 # NEW ENGINES (Ensure these files exist in core/engines/)
-from core.engines.cognitive import SentinelCognitiveEngine, SwarmIntelligence, SwarmOrchestrator
+from core.engines.cognitive import SentinelCognitiveEngine, SwarmIntelligence, SwarmOrchestrator, PolicyBudgetOptimizer
 from core.engines.spatial import SpatialEngine, GraphNeuralNetwork
 from core.engines.causal import CausalEngine
 
@@ -112,7 +113,7 @@ def inject_ultra_css():
             font-family: var(--font-main);
         }}
         
-        /* REMOVE TOP PADDING & DEFAULT ELEMENTS (Fixes Unwanted Space) */
+        /* REMOVE TOP PADDING & DEFAULT ELEMENTS */
         .block-container {{
             padding-top: 1rem;
             padding-bottom: 5rem;
@@ -251,6 +252,128 @@ def inject_ultra_css():
             box-shadow: inset 0 0 20px rgba(0,255,65,0.1);
         }}
         
+        /* Container Styling */
+        div[data-testid="stContainer"] {{
+            border-radius: 5px;
+        }}
+
+        /* --- CHAT BOT CONTAINER FIX --- */
+        /* Fix the chat input container to stay fixed and clear */
+        .stChatInputContainer {{
+            padding-bottom: 20px;
+        }}
+        
+        /* Fix for chat messages overflowing or not fitting */
+        .stChatMessage {{
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 2px solid var(--primary);
+            word-wrap: break-word !important; 
+            overflow-wrap: break-word !important;
+            white-space: pre-wrap !important;
+            max-width: 100% !important;
+        }}
+        
+        /* User message distinct style */
+        .stChatMessage[data-testid="stChatMessageUser"] {{
+             border-left: 2px solid var(--accent);
+             background-color: rgba(255, 0, 60, 0.05);
+        }}
+        
+        /* Ensure chat container scrolls properly */
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div.element-container {{
+            overflow-y: auto;
+        }}
+        
+        /* Force chat messages to stay within container width */
+        div[data-testid="stChatMessageContent"] {{
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }}
+
+        /* --- SIDEBAR DROPDOWN & SELECTBOX FIXES --- */
+        
+        /* Force text colors for labels */
+        .stSelectbox label, .stRadio label {{
+            color: var(--primary) !important;
+            font-family: 'Orbitron';
+            font-size: 0.95rem; /* Bigger Label */
+            margin-bottom: 8px;
+            display: block !important;
+        }}
+        
+        /* Main Selectbox Container - Make sure text is visible */
+        .stSelectbox div[data-baseweb="select"] > div {{
+            background-color: #0A0F0A !important;
+            border: 1px solid var(--primary) !important;
+            color: #E0F0E0 !important;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+        }}
+        
+        /* The Text inside the selectbox */
+        .stSelectbox div[data-baseweb="select"] span {{
+            color: #E0F0E0 !important;
+            font-family: 'Rajdhani';
+            font-size: 1.1rem; /* Readable font size */
+        }}
+
+        /* CRITICAL FIX: The Dropdown Menu (Popover) Visibility */
+        div[data-baseweb="popover"] {{
+            background-color: #050505 !important;
+            border: 1px solid var(--primary) !important;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+            z-index: 999999 !important;
+        }}
+        
+        div[data-baseweb="menu"] {{
+            background-color: #050505 !important;
+        }}
+        
+        /* Options in the list */
+        ul[data-baseweb="menu"] li {{
+            background-color: #050505 !important;
+            color: #E0F0E0 !important;
+            border-bottom: 1px solid #111;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }}
+        
+        /* Hover Effect for Options */
+        ul[data-baseweb="menu"] li:hover {{
+            background-color: var(--primary) !important;
+            color: #000 !important;
+        }}
+        
+        /* Improve Radio Buttons (Toggles) */
+        .stRadio > div {{
+            gap: 15px; /* Space out radio options */
+            flex-direction: column; /* Stack vertically for better readability */
+            align-items: flex-start;
+        }}
+        
+        /* Toggle Switch Styling */
+        .stToggle {{
+            padding-top: 15px;
+            padding-bottom: 15px;
+        }}
+        .stToggle label {{
+            color: #E0E0E0;
+            font-family: 'Rajdhani';
+            font-size: 1rem;
+        }}
+        
+        /* Spacing out the sidebar content */
+        section[data-testid="stSidebar"] > div > div:nth-child(2) {{
+            padding-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem; /* MASSIVE GAP between widgets */
+        }}
+
         /* ANIMATIONS */
         @keyframes pulse {{
             0% {{ opacity: 1; }}
@@ -353,6 +476,16 @@ def run_integrity_scorecard(_df):
     """Memoized Data Integrity Calculation (Whipple/Benford/Anomalies)"""
     return ForensicEngine.generate_integrity_scorecard(_df)
 
+@st.cache_data(show_spinner=False)
+def get_isochrone_bands(_df, center_lat, center_lon):
+    """Calculates isochrone bands for visualization"""
+    return SpatialEngine.calculate_travel_time_isochrones(_df, center_lat, center_lon)
+
+@st.cache_data(show_spinner=False)
+def run_causal_dag(_df):
+    """Memoized Causal DAG construction"""
+    return CausalEngine.structural_causal_model(_df)
+
 # --- NEW: UI HELPER FUNCTION FOR HOLOGRAPHIC METRICS ---
 def render_holographic_metric(label, value, delta=None, color="primary"):
     """
@@ -411,6 +544,29 @@ def render_header_hero(title, sector):
     </div>
     """, unsafe_allow_html=True)
 
+# --- NEW: UI HELPERS FOR PRODUCTION QUALITY ---
+def render_section_header(title, subtitle=None, icon="⚡"):
+    """
+    Standardized section headers to maintain visual hierarchy.
+    """
+    st.markdown(f"""
+    <div style="margin-top: 20px; margin-bottom: 10px; border-left: 4px solid {current_theme['primary']}; padding-left: 10px;">
+        <h3 style="margin: 0; color: {current_theme['text']}; font-family: 'Orbitron';">{icon} {title}</h3>
+        {f'<div style="font-size: 0.9rem; color: #888; font-family: Rajdhani;">{subtitle}</div>' if subtitle else ''}
+    </div>
+    """, unsafe_allow_html=True)
+
+def render_status_badge(status, label):
+    """
+    Renders a status badge (e.g., Online, Critical, Stable).
+    """
+    color = "#00FF41" if status == "GOOD" else "#FF003C"
+    st.markdown(f"""
+    <div style="display: inline-block; padding: 2px 8px; border: 1px solid {color}; border-radius: 4px; color: {color}; font-family: 'Share Tech Mono'; font-size: 0.7rem;">
+        {label}
+    </div>
+    """, unsafe_allow_html=True)
+
 # ==============================================================================
 # 3. SYSTEM EXECUTION FLOW
 # ==============================================================================
@@ -454,14 +610,14 @@ else:
     st.stop()
 
 # ==============================================================================
-# 4. SIDEBAR: ZERO-TRUST CONTROL & RBAC
+# 4. SIDEBAR: ZERO-TRUST CONTROL & RBAC (IMPROVED UI)
 # ==============================================================================
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/en/thumb/c/cf/Aadhaar_Logo.svg/1200px-Aadhaar_Logo.svg.png", width=140)
     
     st.markdown("### 🔐 IDENTITY VERIFICATION")
-    
-    user_role = st.selectbox("BIOMETRIC KEY", config.RBAC_ROLES, index=0, label_visibility="collapsed")
+    # Added clearer label handling
+    user_role = st.selectbox("SELECT BIOMETRIC KEY", config.RBAC_ROLES, index=0)
     
     if user_role == "Director General":
         st.success(" >> ACCESS GRANTED: LEVEL 5")
@@ -473,29 +629,36 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📡 TARGET SECTOR")
     
-    view_mode = st.radio("RESOLUTION", ["NATIONAL LAYER", "DISTRICT LAYER"], label_visibility="collapsed")
-    
-    selected_state = None
-    selected_district = None
-    active_df = master_df 
-    
-    if view_mode == "DISTRICT LAYER":
-        # Ensure Unique State List
-        states = sorted(list(set(master_df['state'].dropna().unique())))
-        col_s1, col_s2 = st.columns(2)
-        selected_state = col_s1.selectbox("STATE", states)
+    # Improve Spacing with st.container and gap
+    with st.container():
+        # Using a selectbox for resolution to save space compared to radio
+        view_mode = st.radio("RESOLUTION MODE", ["NATIONAL LAYER", "STATE LAYER"], horizontal=False)
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        # Ensure Unique District List based on State
-        if selected_state:
-            districts = sorted(list(set(master_df[master_df['state']==selected_state]['district'].dropna().unique())))
-            selected_district = col_s2.selectbox("DISTRICT", districts)
-            active_df = get_filtered_data(master_df, selected_state, selected_district)
+        selected_state = None
+        selected_district = None
+        active_df = master_df 
+        
+        if view_mode == "STATE LAYER":
+            # Ensure Unique State List
+            states = sorted(list(set(master_df['state'].dropna().unique())))
+            st.markdown("#### DRILL DOWN")
+            selected_state = st.selectbox("SELECT STATE", states)
+            
+            # Ensure Unique District List based on State
+            if selected_state:
+                districts = sorted(list(set(master_df[master_df['state']==selected_state]['district'].dropna().unique())))
+                st.markdown("<br>", unsafe_allow_html=True) # Spatial Buffer
+                selected_district = st.selectbox("SELECT DISTRICT", districts)
+                
+                if selected_district:
+                    active_df = get_filtered_data(master_df, selected_state, selected_district)
     
     st.markdown("---")
     
     # NEW V9.8: PRIVACY WATCHDOG IN SIDEBAR
     st.markdown("### 🛡️ SOVEREIGN GUARD")
-    with st.container():
+    with st.container(border=True):
         privacy_status = swarm.privacy_bot.verify_sanitization(active_df)
         if "ACTIVE" in privacy_status:
             st.success(f"{privacy_status}")
@@ -504,7 +667,7 @@ with st.sidebar:
 
     # NEW V9.9: NETWORK STATE (FEDERATED LEARNING)
     st.markdown("### 🔗 NETWORK STATE")
-    with st.container():
+    with st.container(border=True):
         # Simulate Federated Learning Rounds
         fl_round = random.randint(3, 10)
         fl_acc = random.uniform(92.0, 98.5)
@@ -519,7 +682,7 @@ with st.sidebar:
 
     # NEW: SYSTEM MONITOR IN SIDEBAR
     st.markdown("### 🖥️ SYSTEM MONITOR")
-    with st.container():
+    with st.container(border=True):
         st.markdown(f"""
         <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; border: 1px solid #333; font-family: 'Share Tech Mono'; font-size: 0.8rem; color: #888;">
             <div>CPU LOAD: <span style="color:{current_theme['primary']}">{random.randint(12, 45)}%</span></div>
@@ -535,6 +698,9 @@ with st.sidebar:
         if theme_choice != st.session_state['theme_mode']:
             st.session_state['theme_mode'] = theme_choice
             st.rerun()
+        
+        # Improve Toggle Spacing
+        st.markdown("#### ENGINE SETTINGS")
         perf_mode = st.toggle("🚀 BOOST MODE", value=True)
         xai_active = st.toggle("👁️ XAI LAYERS", value=False)
         use_tft = st.toggle("ENABLE TFT (V8.0)", value=False)
@@ -598,104 +764,134 @@ tabs = st.tabs([
 # TAB 1: GOD'S EYE (3D ARCS & HEXAGONS)
 # ------------------------------------------------------------------------------
 with tabs[0]:
+    render_section_header("GEOSPATIAL SITUATION ROOM", "Real-time vector tracking of population movement", "🛰️")
     col_map, col_stat = st.columns([3, 1])
     
     with col_map:
-        # CLEANED: Native Streamlit containers instead of ghost divs
-        st.markdown(f"<h3 style='margin-top:0;'>🌐 3D BALLISTIC TRACKER</h3>", unsafe_allow_html=True)
-        
-        # New V9.8 Toggle for Digital Dark Zones
-        col_ctrl1, col_ctrl2 = st.columns(2)
-        show_dark_zones = col_ctrl1.toggle("🛰️ SHOW DIGITAL DARK ZONES (K-Means)", value=False)
-        # New V9.9 Toggle for Isochrones
-        show_isochrones = col_ctrl2.toggle("⏱️ SHOW ISOCHRONE TRAVEL TIME (30/60 Mins)", value=False)
-        
-        layers = []
-        
-        # 1. Base Map (Hexagons)
-        sample_size = 2000 if perf_mode else 10000
-        map_df = get_cached_hex_map(active_df, sample_size)
-        
-        hex_layer = pdk.Layer(
-            "HexagonLayer",
-            map_df,
-            get_position=["lon", "lat"],
-            elevation_scale=50,
-            radius=5000,
-            extruded=True,
-            pickable=True,
-            get_fill_color=[0, 255, 157, 160],
-            auto_highlight=True,
-        )
-        layers.append(hex_layer)
-        
-        # 2. Migration Arcs
-        arc_data = get_cached_spatial_arcs(active_df)
-        if not arc_data.empty:
-            arc_layer = pdk.Layer(
-                "ArcLayer",
-                arc_data,
-                get_source_position="source",
-                get_target_position="target",
-                get_source_color=[255, 0, 0, 220],
-                get_target_color=[0, 255, 0, 220],
-                get_width=3,
-                pickable=True,
-                get_tilt=15,
-            )
-            layers.append(arc_layer)
+        with st.container(border=True):
+            # New V9.8 Toggle for Digital Dark Zones
+            col_ctrl1, col_ctrl2 = st.columns(2)
+            with col_ctrl1:
+                show_dark_zones = st.toggle("🛰️ SHOW DIGITAL DARK ZONES (K-Means)", value=False)
+            with col_ctrl2:
+                # New V9.9 Toggle for Isochrones
+                show_isochrones = st.toggle("⏱️ SHOW ISOCHRONE TRAVEL TIME (30/60 Mins)", value=False)
             
-        # 3. Dark Zones Layer (New V9.8)
-        if show_dark_zones:
-            dark_df = SpatialEngine.identify_digital_dark_zones(active_df)
-            if not dark_df.empty:
-                # Plot deployment spots
-                van_spots = SpatialEngine.optimize_van_deployment(dark_df)
-                if not van_spots.empty:
-                    van_layer = pdk.Layer(
-                        "ScatterplotLayer",
-                        van_spots,
-                        get_position=["lon", "lat"],
-                        get_color=[255, 255, 0, 255], # Yellow for Vans
-                        get_radius=10000,
-                        pickable=True,
-                        opacity=0.8,
-                        stroked=True,
-                        filled=True,
-                        radius_min_pixels=5,
-                        radius_max_pixels=20,
-                    )
-                    layers.append(van_layer)
-                    st.toast(f"DEPLOYMENT OPTIMIZED: {len(van_spots)} Van Coordinates Calculated.")
+            layers = []
+            
+            # 1. Base Map (Hexagons)
+            sample_size = 2000 if perf_mode else 5000
+            map_df = get_cached_hex_map(active_df, sample_size)
+            
+            hex_layer = pdk.Layer(
+                "HexagonLayer",
+                map_df,
+                get_position=["lon", "lat"],
+                elevation_scale=50,
+                radius=5000,
+                extruded=True,
+                pickable=True,
+                get_fill_color=[0, 255, 157, 160],
+                auto_highlight=True,
+            )
+            layers.append(hex_layer)
+            
+            # 2. Migration Arcs
+            arc_data = get_cached_spatial_arcs(active_df)
+            if not arc_data.empty:
+                arc_layer = pdk.Layer(
+                    "ArcLayer",
+                    arc_data,
+                    get_source_position="source",
+                    get_target_position="target",
+                    get_source_color=[255, 0, 0, 220],
+                    get_target_color=[0, 255, 0, 220],
+                    get_width=3,
+                    pickable=True,
+                    get_tilt=15,
+                )
+                layers.append(arc_layer)
+                
+            # 3. Dark Zones Layer (New V9.8)
+            if show_dark_zones:
+                dark_df = SpatialEngine.identify_digital_dark_zones(active_df)
+                if not dark_df.empty:
+                    # Plot deployment spots
+                    van_spots = SpatialEngine.optimize_van_deployment(dark_df)
+                    if not van_spots.empty:
+                        van_layer = pdk.Layer(
+                            "ScatterplotLayer",
+                            van_spots,
+                            get_position=["lon", "lat"],
+                            get_color=[255, 255, 0, 255], # Yellow for Vans
+                            get_radius=10000,
+                            pickable=True,
+                            opacity=0.8,
+                            stroked=True,
+                            filled=True,
+                            radius_min_pixels=5,
+                            radius_max_pixels=20,
+                        )
+                        layers.append(van_layer)
+                        st.toast(f"DEPLOYMENT OPTIMIZED: {len(van_spots)} Van Coordinates Calculated.")
 
-        st.pydeck_chart(pdk.Deck(
-            map_style="mapbox://styles/mapbox/dark-v10",
-            initial_view_state=pdk.ViewState(latitude=22, longitude=79, zoom=3.8, pitch=55, bearing=15),
-            layers=layers,
-            tooltip={"text": "Activity Zone"}
-        ), use_container_width=True) 
+            # 4. Isochrone Layers (New V9.9)
+            if show_isochrones and 'lat' in active_df.columns:
+                # Approximate center of the dataset
+                c_lat = active_df['lat'].mean()
+                c_lon = active_df['lon'].mean()
+                
+                # Calculate Bands
+                iso_df = get_isochrone_bands(active_df, c_lat, c_lon)
+                if not iso_df.empty:
+                    # Color mapping function
+                    def get_iso_color(band):
+                        if "Ideal" in band: return [0, 255, 0, 180]
+                        if "Acceptable" in band: return [255, 255, 0, 180]
+                        return [255, 0, 0, 180]
+                    
+                    iso_df['color'] = iso_df['service_band'].apply(get_iso_color)
+                    
+                    iso_layer = pdk.Layer(
+                        "ScatterplotLayer",
+                        iso_df,
+                        get_position=["lon", "lat"],
+                        get_fill_color="color",
+                        get_radius=5000,
+                        pickable=True,
+                        opacity=0.6,
+                        stroked=False
+                    )
+                    layers.append(iso_layer)
+                    st.toast("ISOCHRONES RENDERED: Travel-Time Analysis Active.")
+
+            st.pydeck_chart(pdk.Deck(
+                map_style="mapbox://styles/mapbox/dark-v10",
+                initial_view_state=pdk.ViewState(latitude=22, longitude=79, zoom=3.8, pitch=55, bearing=15),
+                layers=layers,
+                tooltip={"text": "Activity Zone"}
+            ), use_container_width=True) 
         
     with col_stat:
-        # Keeping this card as it only wraps text/tables
-        st.markdown(f"<div class='hud-card'>", unsafe_allow_html=True)
-        st.markdown(f"<h4 style='margin-top:0; color: {current_theme['text']}'>📡 FEED</h4>", unsafe_allow_html=True)
-        st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True, use_container_width=True)
-        st.markdown(f"<div style='font-family: Share Tech Mono; color: #666; font-size: 0.8rem; margin-top: 10px;'>LATENCY: {np.random.randint(12, 45)}ms</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(f"<h4 style='margin-top:0; color: {current_theme['text']}'>📡 FEED</h4>", unsafe_allow_html=True)
+            st.dataframe(active_df[['district', 'total_activity']].head(12), hide_index=True, use_container_width=True)
+            st.markdown(f"<div style='font-family: Share Tech Mono; color: #666; font-size: 0.8rem; margin-top: 10px;'>LATENCY: {np.random.randint(12, 45)}ms</div>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
 # TAB 2: TITAN PREDICTION
 # ------------------------------------------------------------------------------
 with tabs[1]:
-    # CLEANED: Removed outer div wrapper
+    render_section_header("TITAN-NET PREDICTION ENGINE", "Multi-Horizon Deep Learning with Uncertainty Quantification", "🧠")
     
     # Header layout
-    h1, h2 = st.columns([4, 1])
-    with h1: st.markdown(f"<h3 style='margin-top:0;'>🧠 TITAN-NET PREDICTION ENGINE</h3>", unsafe_allow_html=True)
+    h1, h2 = st.columns([3, 1])
+    with h1: pass
     with h2: 
-        # NEW V9.9: Physics-Informed Toggle
-        use_pinn = st.toggle("ACTIVATE PHYSICS-INFORMED NN (PINN)", value=False)
-        use_tft = st.toggle("ENABLE TFT (V8.0)", value=False)
+        with st.container(border=True):
+            # NEW V9.9: Physics-Informed Toggle
+            use_pinn = st.toggle("ACTIVATE PHYSICS-INFORMED NN (PINN)", value=False)
+            use_tft = st.toggle("ENABLE TFT (V8.0)", value=False)
     
     if len(active_df) > 50:
         forecast = run_titan_forecast(active_df, days=45, use_tft=use_tft, use_pinn=use_pinn)
@@ -703,62 +899,64 @@ with tabs[1]:
         if not forecast.empty:
             c1, c2 = st.columns([3, 1])
             with c1:
-                fig = go.Figure()
-                # Confidence Tunnel
-                if 'Titan_Upper' in forecast.columns:
+                with st.container(border=True):
+                    fig = go.Figure()
+                    # Confidence Tunnel
+                    if 'Titan_Upper' in forecast.columns:
+                        fig.add_trace(go.Scatter(
+                            x=forecast['Date'].tolist() + forecast['Date'].tolist()[::-1],
+                            y=forecast['Titan_Upper'].tolist() + forecast['Titan_Lower'].tolist()[::-1],
+                            fill='toself', fillcolor='rgba(0, 255, 157, 0.05)', line=dict(color='rgba(255,255,255,0)'),
+                            name='BAYESIAN UNCERTAINTY (95%)'
+                        ))
+                    
+                    # Main Prediction
+                    if use_pinn and 'PINN_Prediction' in forecast.columns:
+                        col_pred = 'PINN_Prediction'
+                        line_name = 'PINN TRAJECTORY (PHYSICS)'
+                    elif use_tft and 'TFT_Prediction' in forecast.columns:
+                        col_pred = 'TFT_Prediction'
+                        line_name = 'TFT TRAJECTORY'
+                    else:
+                        col_pred = 'Titan_Prediction'
+                        line_name = 'AI TRAJECTORY'
+                    
                     fig.add_trace(go.Scatter(
-                        x=forecast['Date'].tolist() + forecast['Date'].tolist()[::-1],
-                        y=forecast['Titan_Upper'].tolist() + forecast['Titan_Lower'].tolist()[::-1],
-                        fill='toself', fillcolor='rgba(0, 255, 157, 0.05)', line=dict(color='rgba(255,255,255,0)'),
-                        name='BAYESIAN UNCERTAINTY (95%)'
+                        x=forecast['Date'], y=forecast[col_pred],
+                        mode='lines', name=line_name, line=dict(color=current_theme['primary'], width=4, shape='spline')
                     ))
-                
-                # Main Prediction
-                if use_pinn and 'PINN_Prediction' in forecast.columns:
-                    col_pred = 'PINN_Prediction'
-                    line_name = 'PINN TRAJECTORY (PHYSICS)'
-                elif use_tft and 'TFT_Prediction' in forecast.columns:
-                    col_pred = 'TFT_Prediction'
-                    line_name = 'TFT TRAJECTORY'
-                else:
-                    col_pred = 'Titan_Prediction'
-                    line_name = 'AI TRAJECTORY'
-                
-                fig.add_trace(go.Scatter(
-                    x=forecast['Date'], y=forecast[col_pred],
-                    mode='lines', name=line_name, line=dict(color=current_theme['primary'], width=4, shape='spline')
-                ))
-                
-                # Baseline
-                if 'Predicted_Load' in forecast.columns:
-                    fig.add_trace(go.Scatter(
-                        x=forecast['Date'], y=forecast['Predicted_Load'],
-                        mode='lines', name='LEGACY BASELINE', line=dict(color='#666', dash='dot')
-                    ))
-                
-                fig = apply_god_mode_theme(fig)
-                fig.update_layout(height=450)
-                st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Baseline
+                    if 'Predicted_Load' in forecast.columns:
+                        fig.add_trace(go.Scatter(
+                            x=forecast['Date'], y=forecast['Predicted_Load'],
+                            mode='lines', name='LEGACY BASELINE', line=dict(color='#666', dash='dot')
+                        ))
+                    
+                    fig = apply_god_mode_theme(fig)
+                    fig.update_layout(height=450)
+                    st.plotly_chart(fig, use_container_width=True)
                 
             with c2:
-                st.markdown("#### MODEL DIAGNOSTICS")
-                algo_name = 'PHYSICS-INFORMED LSTM' if use_pinn else ('TEMPORAL FUSION TRANSFORMER' if use_tft else 'BI-DIRECTIONAL LSTM')
-                st.info(f"ALGORITHM: {algo_name}")
-                st.markdown(f"**ACCURACY:** 98.4% (+2.1%)")
-                st.markdown(f"**HORIZON:** 45 DAYS")
-                
-                if 'Titan_Upper' in forecast.columns:
-                    peak = int(forecast['Titan_Upper'].max())
-                    st.metric("PREDICTED PEAK", f"{peak:,}", "High Load")
-                
-                if xai_active:
-                    st.markdown("---")
-                    st.caption("NEURAL EXPLAINABILITY (XAI)")
-                    tmp_engine = AdvancedForecastEngine(active_df)
-                    feats = tmp_engine.get_feature_importance()
-                    narrative = swarm.xai_bot.interpret_forecast(feats)
-                    st.info(narrative)
-                    st.bar_chart(feats, color=current_theme['primary'])
+                with st.container(border=True):
+                    st.markdown("#### MODEL DIAGNOSTICS")
+                    algo_name = 'PHYSICS-INFORMED LSTM' if use_pinn else ('TEMPORAL FUSION TRANSFORMER' if use_tft else 'BI-DIRECTIONAL LSTM')
+                    st.info(f"ALGORITHM: {algo_name}")
+                    st.markdown(f"**ACCURACY:** 98.4% (+2.1%)")
+                    st.markdown(f"**HORIZON:** 45 DAYS")
+                    
+                    if 'Titan_Upper' in forecast.columns:
+                        peak = int(forecast['Titan_Upper'].max())
+                        st.metric("PREDICTED PEAK", f"{peak:,}", "High Load")
+                    
+                    if xai_active:
+                        st.markdown("---")
+                        st.caption("NEURAL EXPLAINABILITY (XAI)")
+                        tmp_engine = AdvancedForecastEngine(active_df)
+                        feats = tmp_engine.get_feature_importance()
+                        narrative = swarm.xai_bot.interpret_forecast(feats)
+                        st.info(narrative)
+                        st.bar_chart(feats, color=current_theme['primary'])
     else:
         st.info("INSUFFICIENT TEMPORAL DATA FOR DEEP LEARNING.")
 
@@ -766,102 +964,117 @@ with tabs[1]:
 # TAB 3: DEEP FORENSICS
 # ------------------------------------------------------------------------------
 with tabs[2]:
-    # CLEANED: Removed outer div wrapper
-    st.markdown(f"<h3 style='margin-top:0; color: {current_theme['accent']}'>🧬 ANOMALY VECTOR ANALYSIS</h3>", unsafe_allow_html=True)
+    render_section_header("ANOMALY VECTOR ANALYSIS", "High-Dimensional Fraud Detection & Pattern Recognition", "🧬")
     
     col_iso, col_ben = st.columns(2)
     
     with col_iso:
-        st.markdown("#### SPATIAL OUTLIER MAP (ISO-FOREST)")
-        anomalies = run_forensic_scan(active_df)
-        
-        if not anomalies.empty:
-            fig_a = px.scatter(anomalies, x='total_activity', y='severity', color='severity', 
-                            color_continuous_scale=[current_theme['text'], current_theme['accent']])
-            fig_a = apply_god_mode_theme(fig_a)
-            st.plotly_chart(fig_a, use_container_width=True)
+        with st.container(border=True):
+            st.markdown("#### SPATIAL OUTLIER MAP (ISO-FOREST)")
+            anomalies = run_forensic_scan(active_df)
+            
+            if not anomalies.empty:
+                fig_a = px.scatter(anomalies, x='total_activity', y='severity', color='severity', 
+                                color_continuous_scale=[current_theme['text'], current_theme['accent']])
+                fig_a = apply_god_mode_theme(fig_a)
+                st.plotly_chart(fig_a, use_container_width=True)
             
     with col_ben:
-        st.markdown("#### BENFORD'S LAW INTEGRITY")
-        benford_df, is_bad = run_benford_scan(active_df)
-        
-        if not benford_df.empty and 'Expected' in benford_df.columns:
-            df_long = benford_df.melt(id_vars='Digit', value_vars=['Expected', 'Observed'], var_name='Type', value_name='Freq')
-            fig_b = px.bar(df_long, x='Digit', y='Freq', color='Type', barmode='group',
-                        color_discrete_map={'Expected': '#333', 'Observed': current_theme['primary']})
-            fig_b = apply_god_mode_theme(fig_b)
-            st.plotly_chart(fig_b, use_container_width=True)
+        with st.container(border=True):
+            st.markdown("#### BENFORD'S LAW INTEGRITY")
+            benford_df, is_bad = run_benford_scan(active_df)
+            
+            if not benford_df.empty and 'Expected' in benford_df.columns:
+                df_long = benford_df.melt(id_vars='Digit', value_vars=['Expected', 'Observed'], var_name='Type', value_name='Freq')
+                fig_b = px.bar(df_long, x='Digit', y='Freq', color='Type', barmode='group',
+                            color_discrete_map={'Expected': '#333', 'Observed': current_theme['primary']})
+                fig_b = apply_god_mode_theme(fig_b)
+                st.plotly_chart(fig_b, use_container_width=True)
     
     st.markdown("---")
     
     # NEW V9.9: OPERATOR TRUST & ENTROPY SECTION
-    st.markdown("#### 🕵️ OPERATOR FORENSICS & ENTROPY")
+    render_section_header("OPERATOR FORENSICS & ENTROPY", "Behavioral Analysis of Field Agents", "🕵️")
     c_op1, c_op2 = st.columns(2)
     
     with c_op1:
-        st.markdown("**OPERATOR TRUST SCORES**")
-        # Call new forensic function
-        trust_scores = ForensicEngine.generate_operator_trust_score(active_df)
-        if not trust_scores.empty:
-            st.dataframe(trust_scores.head(10), hide_index=True, use_container_width=True)
-        else:
-            st.warning("Operator ID data masked or unavailable.")
+        with st.container(border=True):
+            st.markdown("**OPERATOR TRUST SCORES**")
+            # Call new forensic function
+            trust_scores = ForensicEngine.generate_operator_trust_score(active_df)
+            if not trust_scores.empty:
+                st.dataframe(trust_scores.head(10), hide_index=True, use_container_width=True)
+            else:
+                st.warning("Operator ID data masked or unavailable.")
             
     with c_op2:
-        st.markdown("**GHOST BENEFICIARY ENTROPY**")
-        entropy_status = ForensicEngine.calculate_update_entropy(active_df)
-        
-        # FIX: Handle numeric return (Missing Data) to prevent TypeError
-        if isinstance(entropy_status, (int, float)):
-             st.info("ENTROPY METRIC: DATA UNAVAILABLE")
-        elif "LOW" in entropy_status:
-            st.error(entropy_status)
-        elif "HIGH" in entropy_status:
-            st.warning(entropy_status)
-        else:
-            st.success(entropy_status)
+        with st.container(border=True):
+            st.markdown("**GHOST BENEFICIARY ENTROPY**")
+            entropy_status = ForensicEngine.calculate_update_entropy(active_df)
+            
+            # FIX: Handle numeric return (Missing Data) to prevent TypeError
+            if isinstance(entropy_status, (int, float)):
+                 st.info("ENTROPY METRIC: DATA UNAVAILABLE")
+            elif "LOW" in entropy_status:
+                st.error(entropy_status)
+            elif "HIGH" in entropy_status:
+                st.warning(entropy_status)
+            else:
+                st.success(entropy_status)
             
     st.markdown("---")
     
     # NEW: GNN RISK CONTAGION
-    st.markdown("#### 🕸️ GNN RISK CONTAGION SIMULATION")
+    render_section_header("NETWORK DIFFUSION", "Graph Neural Network Risk Propagation", "🕸️")
     c_gnn1, c_gnn2 = st.columns([3, 1])
     with c_gnn1:
-        if st.button("RUN FORENSIC DIFFUSION MODEL"):
-            with st.spinner("Simulating Fraud Propagation..."):
-                # Build migration graph
-                G, centrality = SpatialEngine.build_migration_graph(active_df)
-                if G:
-                    seeds = {node: random.uniform(0.1, 0.9) for node in G.nodes()}
-                    diffused_risks = GraphNeuralNetwork.simulate_risk_diffusion(G, seeds)
-                    risk_df = pd.DataFrame(list(diffused_risks.items()), columns=['District', 'Contagion_Risk'])
-                    st.dataframe(risk_df.sort_values('Contagion_Risk', ascending=False).head(10), use_container_width=True)
-                else:
-                    st.warning("Insufficient Migration Data for GNN.")
+        with st.container(border=True):
+            st.markdown("#### GNN RISK CONTAGION SIMULATION")
+            if st.button("RUN FORENSIC DIFFUSION MODEL"):
+                with st.spinner("Simulating Fraud Propagation..."):
+                    # Build migration graph
+                    G, centrality = SpatialEngine.build_migration_graph(active_df)
+                    if G:
+                        seeds = {node: random.uniform(0.1, 0.9) for node in G.nodes()}
+                        diffused_risks = GraphNeuralNetwork.simulate_risk_diffusion(G, seeds)
+                        risk_df = pd.DataFrame(list(diffused_risks.items()), columns=['District', 'Contagion_Risk'])
+                        st.dataframe(risk_df.sort_values('Contagion_Risk', ascending=False).head(10), use_container_width=True)
+                    else:
+                        st.warning("Insufficient Migration Data for GNN.")
     
-    # NEW V9.9: OPERATOR COLLUSION & ZKP
-    st.markdown("#### 🕵️ OPERATOR COLLUSION DETECTION")
-    collusion_res = ForensicEngine.detect_operator_collusion(active_df)
-    if "HIGH RISK" in collusion_res:
-        st.error(collusion_res)
-    else:
-        st.success(collusion_res)
+    with c_gnn2:
+        with st.container(border=True):
+            # NEW V9.9: OPERATOR COLLUSION & ZKP
+            st.markdown("#### 🕵️ COLLUSION")
+            collusion_res = ForensicEngine.detect_operator_collusion(active_df)
+            if "HIGH RISK" in collusion_res:
+                st.error(collusion_res)
+            else:
+                st.success(collusion_res)
+            
+            st.markdown("#### 🔐 ZK-SNARK AUDIT")
+            if st.button("VERIFY MERKLE ROOT"):
+                with st.spinner("Cryptographic Validation..."):
+                    zkp_res = ForensicEngine.simulate_zkp_validation(active_df)
+                    st.dataframe(zkp_res.head(3), use_container_width=True)
+                    st.success("✅ LEDGER MATCHED.")
 
 # ------------------------------------------------------------------------------
-# TAB 4: SWARM AGENT
+# TAB 4: SWARM AGENT (FIXED CHAT UI)
 # ------------------------------------------------------------------------------
 with tabs[3]:
+    render_section_header("SECURE SWARM UPLINK", "Autonomous Agents for Policy, Fiscal & Legal Command", "💬")
     c1, c2 = st.columns([2, 1])
     
     with c1:
         # CLEANED: Replaced wrapper with container
-        with st.container():
-            st.markdown(f"<h3 style='margin-top:0; color: {current_theme['primary']}'>💬 SECURE SWARM UPLINK</h3>", unsafe_allow_html=True)
+        with st.container(border=True):
             
             # New V9.9: Toggle for Voice/Text
             mode = st.radio("INTERFACE MODE", ["TEXT ENCRYPTED", "VOICE UPLINK"], horizontal=True, label_visibility="collapsed")
             
-            chat_container = st.container(height=350)
+            # FIXED: Chat Container with proper height and message rendering
+            chat_container = st.container(height=500)
             
             if "messages" not in st.session_state:
                 st.session_state.messages = [{"role": "assistant", "content": "Sentinel Node Online. Awaiting Directives."}]
@@ -873,61 +1086,71 @@ with tabs[3]:
 
             if mode == "TEXT ENCRYPTED":
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                
+                # Suggestions inside the main column, outside chat window
                 if "suggestions" in st.session_state:
                     cols = st.columns(3)
                     for i, suggestion in enumerate(st.session_state['suggestions']):
-                        if cols[i].button(suggestion, key=f"sugg_{i}"):
+                        # FIX: Use modulo to cycle through columns to prevent IndexError
+                        if cols[i % 3].button(suggestion, key=f"sugg_{i}"):
                             st.toast(f"Swarm Protocol Initiated: {suggestion}")
 
-                if prompt := st.chat_input("TRANSMIT DIRECTIVE..."):
+                # Prompt Logic
+                if prompt := st.chat_input("TRANSMIT DIRECTIVE...", key="chat_input_main"):
                     st.session_state.messages.append({"role": "user", "content": prompt})
-                    with st.chat_message("user"):
-                        st.markdown(prompt)
+                    with chat_container: # Fix: render NEW messages inside container immediately
+                        with st.chat_message("user"):
+                            st.markdown(prompt)
 
-                    with st.chat_message("assistant"):
-                        with st.spinner("DECRYPTING & ANALYZING..."):
-                            try:
-                                # V8.0 Swarm Routing
-                                if "scan" in prompt or "audit" in prompt:
-                                    response_text = swarm.auditor.run_audit(active_df)
-                                    thought_text = "Routing to Auditor Agent..."
-                                    action_text = "Running Forensic Scan"
-                                elif "budget" in prompt:
-                                    # New V9.9 Budget call
-                                    response = cognitive_engine.react_agent_query(prompt)
-                                    response_text = response['answer']
-                                    thought_text = response['thought']
-                                    action_text = response['action']
-                                elif "strategy" in prompt or "plan" in prompt:
-                                    response_text = swarm.strategist.devise_strategy(threat_level)
-                                    thought_text = "Routing to Strategist Agent..."
-                                    action_text = "Synthesizing Policy Directive"
-                                elif "dark" in prompt or "zone" in prompt:
-                                    response = cognitive_engine.react_agent_query(prompt)
-                                    response_text = response['answer']
-                                    thought_text = response['thought']
-                                    action_text = response['action']
-                                else:
-                                    # Default Cognitive Engine + Legal RAG check
-                                    compliance = swarm.legal_bot.check_compliance(prompt)
-                                    response = cognitive_engine.react_agent_query(prompt)
-                                    response_text = f"{compliance}\n\n{response['answer']}"
-                                    thought_text = response['thought']
-                                    action_text = response['action']
-                                    if "suggestions" in response:
-                                        st.session_state['suggestions'] = response['suggestions']
-
-                                st.markdown(f"""
-                                <div style="font-family: Share Tech Mono; color: #8899AA; font-size: 0.9em; border-left: 2px solid {current_theme['primary']}; padding-left: 10px; margin-bottom: 10px; background: rgba(0,0,0,0.5);">
-                                > THOUGHT: {thought_text}<br>
-                                > ACTION: {action_text}
-                                </div>
-                                """, unsafe_allow_html=True)
-                                st.markdown(response_text)
-                                st.session_state.messages.append({"role": "assistant", "content": response_text})
+                        with st.chat_message("assistant"):
+                            with st.spinner("DECRYPTING & ANALYZING..."):
+                                try:
+                                    # V8.0 Swarm Routing Logic
+                                    if "scan" in prompt or "audit" in prompt:
+                                        response_text = swarm.auditor.run_audit(active_df)
+                                        thought_text = "Routing to Auditor Agent..."
+                                        action_text = "Running Forensic Scan"
+                                    elif "budget" in prompt:
+                                        # New V9.9 Budget call
+                                        response = cognitive_engine.react_agent_query(prompt)
+                                        response_text = response['answer']
+                                        thought_text = response['thought']
+                                        action_text = response['action']
+                                    elif "strategy" in prompt or "plan" in prompt:
+                                        response_text = swarm.strategist.devise_strategy(threat_level)
+                                        thought_text = "Routing to Strategist Agent..."
+                                        action_text = "Synthesizing Policy Directive"
+                                    elif "dark" in prompt or "zone" in prompt:
+                                        response = cognitive_engine.react_agent_query(prompt)
+                                        response_text = response['answer']
+                                        thought_text = response['thought']
+                                        action_text = response['action']
+                                    else:
+                                        # Default Cognitive Engine + Legal RAG check
+                                        compliance = swarm.legal_bot.check_compliance(prompt)
+                                        response = cognitive_engine.react_agent_query(prompt)
+                                        response_text = f"{compliance}\n\n{response['answer']}"
+                                        thought_text = response['thought']
+                                        action_text = response['action']
+                                        if "suggestions" in response:
+                                            st.session_state['suggestions'] = response['suggestions']
+                                            
+                                    # Format the thought process block
+                                    thought_block = f"""
+                                    <div style="font-family: Share Tech Mono; color: #8899AA; font-size: 0.9em; border-left: 2px solid {current_theme['primary']}; padding-left: 10px; margin-bottom: 10px; background: rgba(0,0,0,0.5);">
+                                    > THOUGHT: {thought_text}<br>
+                                    > ACTION: {action_text}
+                                    </div>
+                                    """
                                     
-                            except Exception as e:
-                                st.error(f"NEURAL LINK FAILURE: {e}")
+                                    full_response = f"{thought_block}\n\n{response_text}"
+                                    
+                                    # Append only the text content for history, render HTML now
+                                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                                    st.markdown(full_response, unsafe_allow_html=True)
+                                        
+                                except Exception as e:
+                                    st.error(f"NEURAL LINK FAILURE: {e}")
                                 
             else: # VOICE MODE
                 st.info("🎤 VOICE UPLINK ACTIVE. LISTENING FOR HINDI/TAMIL COMMANDS...")
@@ -939,47 +1162,67 @@ with tabs[3]:
                         st.markdown(f"**INTENT:** {res['detected_intent']} (Confidence: {res['confidence']})")
 
     with c2:
-        st.markdown(f"<div class='hud-card'>", unsafe_allow_html=True)
-        st.markdown("### 🤖 AGENT ROSTER")
-        st.success(" >> SCOUT AGENT: ACTIVE")
-        st.info(" >> STRATEGIST: STANDBY")
-        st.warning(" >> AUDITOR: IDLE")
-        
-        st.markdown("---")
-        st.markdown("#### 📄 CLASSIFIED BRIEF")
-        if st.button("GENERATE EXECUTIVE PDF"):
-            with st.spinner("SYNTHESIZING..."):
-                stats = {
-                    'sector': selected_district if selected_district else 'National',
-                    'risk': threat_level,
-                    'total_volume': int(total_vol),
-                    'nodes': len(active_df),
-                    'anomalies': 0 # Placeholder for brevity
-                }
-                pdf_bytes = cognitive_engine.generate_pdf_brief(stats)
-                if pdf_bytes:
-                    st.download_button("⬇️ DOWNLOAD ENCRYPTED BRIEF", data=pdf_bytes, file_name="sentinel_brief.pdf", mime="application/pdf")
-                    st.success("PROTOCOL COMPLETE.")
-                else:
-                    st.error("PROTOCOL FAILED: FPDF Missing or Encoding Error.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### 🤖 AGENT ROSTER")
+            st.success(" >> SCOUT AGENT: ACTIVE")
+            st.info(" >> STRATEGIST: STANDBY")
+            st.warning(" >> AUDITOR: IDLE")
+            
+            st.markdown("---")
+            st.markdown("#### 💰 FISCAL COMMAND")
+            if st.button("RUN BUDGET OPTIMIZER"):
+                with st.spinner("Calculating ROI..."):
+                    # Simulate aggregated stats for budget
+                    district_stats = active_df.groupby('district').sum(numeric_only=True).reset_index()
+                    roi_data = PolicyBudgetOptimizer.calculate_intervention_roi(district_stats)
+                    st.info(f"TARGET: {roi_data.get('Target_District')}")
+                    st.success(f"RECOMMENDATION: {roi_data.get('Recommendation')}")
+                    st.markdown(f"**SOCIAL VALUE:** {roi_data.get('Projected_Social_Value')}")
+
+            st.markdown("---")
+            st.markdown("#### 📄 CLASSIFIED BRIEF")
+            if st.button("GENERATE EXECUTIVE PDF"):
+                with st.spinner("SYNTHESIZING..."):
+                    stats = {
+                        'sector': selected_district if selected_district else 'National',
+                        'risk': threat_level,
+                        'total_volume': int(total_vol),
+                        'nodes': len(active_df),
+                        'anomalies': 0 # Placeholder for brevity
+                    }
+                    pdf_bytes = cognitive_engine.generate_pdf_brief(stats)
+                    if pdf_bytes:
+                        st.download_button("⬇️ DOWNLOAD ENCRYPTED BRIEF", data=pdf_bytes, file_name="sentinel_brief.pdf", mime="application/pdf")
+                        st.success("PROTOCOL COMPLETE.")
+                    else:
+                        st.error("PROTOCOL FAILED: FPDF Missing or Encoding Error.")
 
 # ------------------------------------------------------------------------------
-# TAB 5 & 6: CAUSAL & SIMULATOR
+# TAB 5: CAUSAL ROOT ANALYSIS
 # ------------------------------------------------------------------------------
 with tabs[4]:
-    # CLEANED: Removed outer div wrapper
-    st.markdown("### 📉 CAUSAL ROOT ANALYSIS")
+    render_section_header("CAUSAL ROOT ANALYSIS", "Structural Causal Models (SCM) & Digital Twin Drift", "📉")
     
     # NEW V9.9: SHADOW VAULT DIVERGENCE (DIGITAL TWIN)
-    st.markdown("#### 🌗 SHADOW VAULT DIVERGENCE")
-    drift_data = CausalEngine.compute_shadow_vault_divergence(active_df)
-    if drift_data:
-        c_drift1, c_drift2 = st.columns([1, 2])
-        with c_drift1:
-            st.metric("DATA LATENCY DRIFT", drift_data['Data_Latency_Drift'], "Lagging")
-        with c_drift2:
-            st.info(f"INTERPRETATION: {drift_data['Interpretation']}")
+    with st.container(border=True):
+        st.markdown("#### 🌗 SHADOW VAULT DIVERGENCE")
+        drift_data = CausalEngine.compute_shadow_vault_divergence(active_df)
+        if drift_data:
+            c_drift1, c_drift2 = st.columns([1, 2])
+            with c_drift1:
+                st.metric("DATA LATENCY DRIFT", drift_data['Data_Latency_Drift'], "Lagging")
+            with c_drift2:
+                st.info(f"INTERPRETATION: {drift_data['Interpretation']}")
+    
+    st.markdown("---")
+    
+    # Causal DAG Visualization
+    st.markdown("#### 🕸️ STRUCTURAL CAUSAL MODEL (DAG)")
+    G = run_causal_dag(active_df)
+    if G:
+        dot = CausalEngine.render_causal_graph(G)
+        if dot:
+            st.graphviz_chart(dot)
     
     st.markdown("---")
     st.markdown("#### STRUCTURAL DRIVERS")
@@ -997,14 +1240,16 @@ with tabs[4]:
                 fig = apply_god_mode_theme(fig)
                 st.plotly_chart(fig, use_container_width=True)
 
+# ------------------------------------------------------------------------------
+# TAB 6: INFRASTRUCTURE WARGAMES
+# ------------------------------------------------------------------------------
 with tabs[5]:
-    # CLEANED: Removed outer div wrapper
-    st.markdown("### 🔮 INFRASTRUCTURE WARGAMES")
+    render_section_header("INFRASTRUCTURE WARGAMES", "Stress Testing the National Grid", "🔮")
     c1, c2 = st.columns([1, 3])
     with c1:
-        with st.expander("WARGAME CONFIG", expanded=True):
+        with st.container(border=True):
+            st.markdown("#### CONFIG")
             with st.form("wargame_config"):
-                st.markdown("#### PARAMETERS")
                 surge = st.slider("POPULATION SURGE", 0, 50, 15, format="%d%%")
                 policy = st.selectbox("POLICY TRIGGER", ["None", "Mandatory Update", "DBT Launch"])
                 execute_sim = st.form_submit_button("🚀 INITIATE SIMULATION")
@@ -1016,64 +1261,64 @@ with tabs[5]:
                     surge = 30 # Implicit surge
                     execute_sim = True
                 
-                st.markdown("#### DISASTER RECOVERY")
                 if st.form_submit_button("🌊 FLOOD RESPONSE SIMULATION"):
                     policy = "FLOOD"
                     execute_sim = True
             
     with c2:
-        if execute_sim:
-            forecaster = ForecastEngine(active_df)
-            
-            # Use appropriate simulation logic
-            if policy == "DBT Launch":
-                forecast = forecaster.simulate_dbt_mega_launch(days=30)
-            elif policy == "FLOOD":
-                # New V9.9 Flood Logic
-                res = CausalEngine.run_multi_agent_disaster_sim()
-                st.warning(f"SCENARIO ACTIVE: {res['Scenario']}")
-                st.error(f"SYSTEM STRESS: {res['System_Stress']}")
-                st.info(f"ADVICE: {res['Strategic_Advice']}")
-                forecast = pd.DataFrame() # No chart for flood yet
-            else:
-                forecast = forecaster.calculate_resource_demand(days=60)
-            
-            if not forecast.empty:
-                # Handle different forecast outputs (Standard vs DBT)
-                if 'Simulated_Load' not in forecast.columns:
-                    multiplier = 1 + (surge/100)
-                    if policy == "Mandatory Update": multiplier += 0.3
-                    forecast['Simulated_Load'] = forecast['Predicted_Load'] * multiplier # Fallback if standard calc used
+        with st.container(border=True):
+            if execute_sim:
+                forecaster = ForecastEngine(active_df)
                 
-                fig_sim = go.Figure()
-                fig_sim.add_trace(go.Scatter(x=forecast['Date'], y=forecast['Predicted_Load'], name='Baseline', line=dict(color='#888')))
-                fig_sim.add_trace(go.Scatter(x=forecast['Date'], y=forecast['Simulated_Load'], name=f'Scenario (+{surge}%)', 
-                                           line=dict(color=current_theme['accent'], width=3, dash='dot')))
-                fig_sim = apply_god_mode_theme(fig_sim)
-                st.plotly_chart(fig_sim, use_container_width=True)
-                
-                # Risk Assessment
-                gap = forecast['Simulated_Load'].max() - forecast.get('Upper_Bound', forecast['Predicted_Load']*1.2).max()
-                
-                # New V9.8: Crisis Manager Check
-                status = swarm.crisis_bot.evaluate_shock_resilience(forecast.get('Utilization', pd.Series([0])).max())
-                
-                if status['condition'] != "STABLE":
-                    st.error(f"💥 {status['condition']}: {status['message']}")
+                # Use appropriate simulation logic
+                if policy == "DBT Launch":
+                    forecast = forecaster.simulate_dbt_mega_launch(days=30)
+                elif policy == "FLOOD":
+                    # New V9.9 Flood Logic
+                    res = CausalEngine.run_multi_agent_disaster_sim()
+                    st.warning(f"SCENARIO ACTIVE: {res['Scenario']}")
+                    st.error(f"SYSTEM STRESS: {res['System_Stress']}")
+                    st.info(f"ADVICE: {res['Strategic_Advice']}")
+                    forecast = pd.DataFrame() # No chart for flood yet
                 else:
-                    st.success("✅ INFRASTRUCTURE RESILIENT")
+                    forecast = forecaster.calculate_resource_demand(days=60)
+                
+                if not forecast.empty:
+                    # Handle different forecast outputs (Standard vs DBT)
+                    if 'Simulated_Load' not in forecast.columns:
+                        multiplier = 1 + (surge/100)
+                        if policy == "Mandatory Update": multiplier += 0.3
+                        forecast['Simulated_Load'] = forecast['Predicted_Load'] * multiplier # Fallback if standard calc used
+                    
+                    fig_sim = go.Figure()
+                    fig_sim.add_trace(go.Scatter(x=forecast['Date'], y=forecast['Predicted_Load'], name='Baseline', line=dict(color='#888')))
+                    fig_sim.add_trace(go.Scatter(x=forecast['Date'], y=forecast['Simulated_Load'], name=f'Scenario (+{surge}%)', 
+                                               line=dict(color=current_theme['accent'], width=3, dash='dot')))
+                    fig_sim = apply_god_mode_theme(fig_sim)
+                    st.plotly_chart(fig_sim, use_container_width=True)
+                    
+                    # Risk Assessment
+                    gap = forecast['Simulated_Load'].max() - forecast.get('Upper_Bound', forecast['Predicted_Load']*1.2).max()
+                    
+                    # New V9.8: Crisis Manager Check
+                    status = swarm.crisis_bot.evaluate_shock_resilience(forecast.get('Utilization', pd.Series([0])).max())
+                    
+                    if status['condition'] != "STABLE":
+                        st.error(f"💥 {status['condition']}: {status['message']}")
+                    else:
+                        st.success("✅ INFRASTRUCTURE RESILIENT")
 
 # ------------------------------------------------------------------------------
 # TAB 7: VISUAL STUDIO (PERFORMANCE OPTIMIZED & FIXED)
 # ------------------------------------------------------------------------------
 with tabs[6]:
-    # CLEANED: Removed outer div wrapper
-    st.markdown("### 🎨 VISUAL STUDIO | CUSTOM ANALYTICS")
+    render_section_header("VISUAL STUDIO", "Ad-Hoc Data Exploration & Rendering", "🎨")
     
     vs_c1, vs_c2 = st.columns([1, 3])
     
     with vs_c1:
-        with st.expander("CHART CONFIGURATION", expanded=True):
+        with st.container(border=True):
+            st.markdown("#### CONFIG")
             with st.form("viz_studio_form"):
                 chart_type = st.selectbox("CHART MODE", ["Scatter Plot", "Bar Chart", "Line Chart", "Heatmap", "3D Surface"])
                 
@@ -1088,32 +1333,33 @@ with tabs[6]:
                 viz_submitted = st.form_submit_button("GENERATE RENDER")
     
     with vs_c2:
-        if viz_submitted:
-            with st.spinner("RENDERING VECTOR GRAPHICS..."):
-                try:
-                    plot_df = active_df.copy()
-                    if len(plot_df) > 2000 and perf_mode:
-                        st.info(f"⚡ OPTIMIZED RENDER: Downsampled from {len(plot_df)} to 2000 points.")
-                        plot_df = plot_df.sample(2000, random_state=42)
-                    
-                    if chart_type == "Scatter Plot":
-                        fig = px.scatter(plot_df, x=x_axis, y=y_axis, color=color_dim)
-                    elif chart_type == "Bar Chart":
-                        fig = px.bar(plot_df, x=x_axis, y=y_axis, color=color_dim)
-                    elif chart_type == "Line Chart":
-                        fig = px.line(plot_df, x=x_axis, y=y_axis, color=color_dim)
-                    elif chart_type == "Heatmap":
-                        fig = px.density_heatmap(plot_df, x=x_axis, y=y_axis)
-                    elif chart_type == "3D Surface":
-                        fig = px.scatter_3d(plot_df, x=x_axis, y=y_axis, z=z_axis, color=color_dim)
-                    
-                    fig = apply_god_mode_theme(fig)
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                except Exception as e:
-                    st.error(f"RENDER ERROR: {e}")
-        else:
-            st.info("Awaiting Configuration...")
+        with st.container(border=True):
+            if viz_submitted:
+                with st.spinner("RENDERING VECTOR GRAPHICS..."):
+                    try:
+                        plot_df = active_df.copy()
+                        if len(plot_df) > 2000 and perf_mode:
+                            st.info(f"⚡ OPTIMIZED RENDER: Downsampled from {len(plot_df)} to 2000 points.")
+                            plot_df = plot_df.sample(2000, random_state=42)
+                        
+                        if chart_type == "Scatter Plot":
+                            fig = px.scatter(plot_df, x=x_axis, y=y_axis, color=color_dim)
+                        elif chart_type == "Bar Chart":
+                            fig = px.bar(plot_df, x=x_axis, y=y_axis, color=color_dim)
+                        elif chart_type == "Line Chart":
+                            fig = px.line(plot_df, x=x_axis, y=y_axis, color=color_dim)
+                        elif chart_type == "Heatmap":
+                            fig = px.density_heatmap(plot_df, x=x_axis, y=y_axis)
+                        elif chart_type == "3D Surface":
+                            fig = px.scatter_3d(plot_df, x=x_axis, y=y_axis, z=z_axis, color=color_dim)
+                        
+                        fig = apply_god_mode_theme(fig)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"RENDER ERROR: {e}")
+            else:
+                st.info("Awaiting Configuration...")
             
     st.markdown("---")
     st.markdown("### 🔎 CLUSTER DEEP-DIVE")

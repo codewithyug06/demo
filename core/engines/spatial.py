@@ -135,23 +135,40 @@ class SpatialEngine:
     def generate_h3_hexagons(df, resolution=4):
         """
         Generates H3 Hexagon data for aggregation.
+        Includes optimization for large datasets.
         """
         if 'lat' not in df.columns or 'lon' not in df.columns:
             return pd.DataFrame()
         
+        # OPTIMIZATION: If data is massive, sample it first to prevent 900MB crashes during H3 calculation
+        process_df = df
+        if len(df) > 50000:
+            process_df = df.sample(50000)
+
         try:
             import h3
             # Real H3 Indexing
-            df['h3_index'] = df.apply(lambda row: h3.geo_to_h3(row['lat'], row['lon'], resolution), axis=1)
-            hex_data = df.groupby('h3_index').agg({
+            # Using list comprehension which is often faster than apply for simple geometric ops
+            lats = process_df['lat'].values
+            lons = process_df['lon'].values
+            h3_indices = [h3.geo_to_h3(lat, lon, resolution) for lat, lon in zip(lats, lons)]
+            
+            process_df = process_df.copy()
+            process_df['h3_index'] = h3_indices
+            
+            hex_data = process_df.groupby('h3_index').agg({
                 'total_activity': 'sum',
                 'lat': 'mean', # Centroid proxy
                 'lon': 'mean'
             }).reset_index()
             return hex_data
         except ImportError:
-            # Fallback
-            return df[['lat', 'lon', 'total_activity']].copy()
+            # Fallback if H3 not installed
+            return process_df[['lat', 'lon', 'total_activity']].head(1000).copy()
+        except Exception as e:
+            # Fallback for any other calculation errors
+            print(f"H3 Generation Error: {e}")
+            return pd.DataFrame()
 
     @staticmethod
     def build_migration_graph(df):
@@ -159,12 +176,14 @@ class SpatialEngine:
         
         if 'district' not in df.columns: return None, {}
         
+        # Aggregate first to avoid building a graph with 1 million nodes
         hub_data = df.groupby('district').agg({
             'total_activity': 'sum',
             'lat': 'mean',
             'lon': 'mean'
         }).reset_index().sort_values('total_activity', ascending=False)
         
+        # Limit to top 20 hubs for visualization performance
         top_hubs = hub_data.head(20)
         
         for _, row in top_hubs.iterrows():
@@ -175,6 +194,7 @@ class SpatialEngine:
         import random
         for i in range(len(districts)):
             for j in range(i+1, len(districts)):
+                # Sparse connection to avoid hairball
                 if random.random() > 0.85: 
                     G.add_edge(districts[i], districts[j], weight=random.random())
             
@@ -186,10 +206,24 @@ class SpatialEngine:
         return G, centrality
 
     @staticmethod
-    def downsample_for_map(df, max_points=10000):
+    def downsample_for_map(df, max_points=5000):
+        """
+        CRITICAL OPTIMIZATION: Enforce strict limit to prevent Browser Crash (900MB Error).
+        Default reduced to 5000 points.
+        """
+        if df.empty:
+            return df
+            
         if len(df) > max_points:
-            return df.sample(n=max_points, random_state=42)
-        return df
+            # Use random sampling to represent distribution without overload
+            df = df.sample(n=max_points, random_state=42)
+        
+        # CRITICAL FIX: Ensure lat/lon are standard floats for PyDeck serialization
+        # (Numpy types often break JSON serialization in Streamlit)
+        df_clean = df.copy()
+        if 'lat' in df_clean.columns: df_clean['lat'] = df_clean['lat'].astype(float)
+        if 'lon' in df_clean.columns: df_clean['lon'] = df_clean['lon'].astype(float)
+        return df_clean
 
     # ==========================================================================
     # NEW GOD-LEVEL FEATURE: 3D BALLISTIC MIGRATION ARCS
@@ -198,9 +232,12 @@ class SpatialEngine:
     def generate_migration_arcs(df):
         """
         Generates source-target pairs for PyDeck ArcLayer.
+        CRITICAL FIX: Explicitly casts numpy types to python native types to prevent
+        JSON serialization errors in PyDeck.
         """
         if df.empty or 'district' not in df.columns: return pd.DataFrame()
         
+        # Aggregate by district to reduce complexity
         stats = df.groupby('district').agg({
             'total_activity': 'sum',
             'lat': 'mean',
@@ -209,6 +246,7 @@ class SpatialEngine:
         
         if len(stats) < 2: return pd.DataFrame()
         
+        # Visual limits to prevent "Too Many Arcs" crash
         targets = stats.nlargest(5, 'total_activity')
         sources = stats.nsmallest(min(20, len(stats)), 'total_activity')
         
@@ -218,12 +256,16 @@ class SpatialEngine:
         for _, src in sources.iterrows():
             target = targets.sample(1).iloc[0]
             if src['district'] != target['district']:
+                # FIX: Force float conversion for PyDeck serialization
+                src_coords = [float(src['lon']), float(src['lat'])]
+                tgt_coords = [float(target['lon']), float(target['lat'])]
+                
                 arcs.append({
-                    "source_text": src['district'],
-                    "target_text": target['district'],
-                    "source": [src['lon'], src['lat']],
-                    "target": [target['lon'], target['lat']],
-                    "value": random.randint(100, 1000), 
+                    "source_text": str(src['district']),
+                    "target_text": str(target['district']),
+                    "source": src_coords,
+                    "target": tgt_coords,
+                    "value": int(random.randint(100, 1000)), 
                     "color": [0, 255, 194, 200] if random.random() > 0.5 else [255, 0, 100, 200]
                 })
             
@@ -245,6 +287,7 @@ class SpatialEngine:
         """
         if df.empty or 'lat' not in df.columns: return pd.DataFrame()
         
+        # Group first to avoid calculating distance for 1 million rows
         stats = df.groupby('district').agg({
             'total_activity': 'sum',
             'lat': 'mean',
@@ -287,12 +330,19 @@ class SpatialEngine:
             
         coordinates = dark_zones_df[['lat', 'lon']].values
         
-        kmeans = KMeans(n_clusters=n_vans, random_state=42, n_init=10)
+        # Ensure n_clusters doesn't exceed samples
+        n_clusters = min(n_vans, len(dark_zones_df))
+        
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
         kmeans.fit(coordinates)
         
         deployments = pd.DataFrame(kmeans.cluster_centers_, columns=['lat', 'lon'])
-        deployments['van_id'] = [f"UNIT-ALPHA-{i+1}" for i in range(n_vans)]
+        deployments['van_id'] = [f"UNIT-ALPHA-{i+1}" for i in range(len(deployments))]
         deployments['priority'] = "CRITICAL"
+        
+        # FIX: Ensure coords are floats for PyDeck
+        deployments['lat'] = deployments['lat'].astype(float)
+        deployments['lon'] = deployments['lon'].astype(float)
         
         return deployments
 
@@ -335,7 +385,8 @@ class SpatialEngine:
         """
         if df.empty or 'lat' not in df.columns: return pd.DataFrame()
         
-        res = df.copy()
+        # Downsample for isochrones if too large (performance fix)
+        res = df if len(df) < 2000 else df.sample(2000).copy()
         
         # Haversine Distance (approx)
         def haversine(row):
@@ -380,6 +431,10 @@ class SpatialEngine:
         ops = df.groupby('operator_id').agg({'lat':'mean', 'lon':'mean'}).reset_index()
         if len(ops) < 3: return "INSUFFICIENT DATA"
         
+        # Optimization: Limit operator count to avoid O(N^2) memory explosion
+        if len(ops) > 2000:
+            ops = ops.sample(2000)
+
         # Distance Matrix
         coords = ops[['lat', 'lon']].values
         dist_matrix = squareform(pdist(coords))
