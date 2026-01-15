@@ -12,6 +12,12 @@ import random
 import datetime
 import graphviz # NEW: For Causal DAG Visualization
 from io import BytesIO
+import warnings
+
+# Suppress annoying warnings for the demo
+warnings.filterwarnings("ignore")
+import os
+os.environ["PYTHONWARNINGS"] = "ignore"
 
 # SYSTEM PATH SETUP (Critical for Enterprise Deployment)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

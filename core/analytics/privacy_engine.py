@@ -16,6 +16,7 @@ class PrivacyEngine:
     2. Laplace Mechanism (for Count/Sum queries)
     3. Sensitivity-Calibrated Noise Injection
     4. Sovereign Audit Logging (Zero-Knowledge)
+    5. Re-identification Risk Assessment (k-Anonymity Proxy)
     """
     
     def __init__(self, total_epsilon=5.0, delta=1e-5):
@@ -38,7 +39,8 @@ class PrivacyEngine:
             'count': 1.0,         # One person adds 1 to a count
             'sum_activity': 50.0, # Cap: One person does max 50 updates/year (Clamping)
             'mean': 0.05,         # Impact on mean is low for large N
-            'histogram': 2.0      # Impact on a distribution bucket
+            'histogram': 2.0,     # Impact on a distribution bucket
+            'risk_score': 0.1     # Impact on aggregated risk score
         }
 
     def _check_budget(self, cost):
@@ -123,7 +125,7 @@ class PrivacyEngine:
         if not self._check_budget(cost):
             return pd.DataFrame()
             
-        sensitivity = self.sensitivity_map['histogram']
+        sensitivity = self.sensitivity_map.get('histogram', 2.0)
         scale = sensitivity / epsilon_per_row
         
         # Vectorized Noise Injection
@@ -139,6 +141,27 @@ class PrivacyEngine:
         self._log_event("BATCH_TRANSFORM", cost, f"Viz Masking: {sensitive_col}")
         
         return safe_df
+
+    def calculate_reidentification_risk(self, df, quasi_identifiers=['district', 'age', 'gender']):
+        """
+        Estimates the risk of re-identification based on k-Anonymity principles.
+        Returns a risk score (0-100).
+        """
+        if df.empty: return 0.0
+        
+        # Check which columns exist
+        available_cols = [c for c in quasi_identifiers if c in df.columns]
+        if not available_cols: return 0.0
+        
+        # Group by quasi-identifiers to find unique combinations
+        groups = df.groupby(available_cols).size()
+        
+        # Count groups with size < 5 (High Risk of Re-ID)
+        risky_groups = groups[groups < 5].count()
+        total_groups = len(groups)
+        
+        risk_score = (risky_groups / total_groups) * 100 if total_groups > 0 else 0
+        return round(risk_score, 2)
 
     def get_privacy_status(self):
         """
