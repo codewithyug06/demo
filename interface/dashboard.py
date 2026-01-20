@@ -526,6 +526,8 @@ def run_causal_inference(_df):
 @st.cache_data(show_spinner=False)
 def get_cached_spatial_arcs(_df):
     """Memoized PyDeck Arcs"""
+    # Arcs are very heavy, sample aggressively
+    if len(_df) > 2000: _df = _df.sample(2000, random_state=42)
     return SpatialEngine.generate_migration_arcs(_df)
 
 @st.cache_data(show_spinner=False)

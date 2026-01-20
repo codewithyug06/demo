@@ -26,13 +26,13 @@ class ForecastEngine:
 
     def generate_forecast(self, days=30):
         # Data Validation
-        if 'date' not in self.df.columns or 'total_activity' not in self.df.columns: 
+        if self.df.empty or 'date' not in self.df.columns or 'total_activity' not in self.df.columns: 
             return pd.DataFrame()
         
         # Aggregate daily data
         daily = self.df.groupby('date')['total_activity'].sum().reset_index().sort_values('date')
         
-        # Insufficient data check
+        # Insufficient data check (Need at least 5 data points)
         if len(daily) < 5: 
             return pd.DataFrame()
         
@@ -58,7 +58,10 @@ class ForecastEngine:
             last_val = next_val
         
         # Inverse Transform
-        res = self.scaler.inverse_transform(np.array(preds).reshape(-1, 1))
+        try:
+            res = self.scaler.inverse_transform(np.array(preds).reshape(-1, 1))
+        except:
+            return pd.DataFrame()
         
         # Future Dates
         last_date = daily['date'].iloc[-1]
@@ -113,6 +116,7 @@ class ForecastEngine:
         # Calculate Server Stress (Latency increases exponentially with Load > 95%)
         # Standard Capacity = 1.2x of Mean Historic Load
         capacity = base['Predicted_Load'].mean() * 1.2
+        if capacity == 0: capacity = 1
         
         base['Utilization'] = base['Simulated_Load'] / capacity
         base['Est_Latency_ms'] = 20 * (1 + np.exp(5 * (base['Utilization'] - 1))) # Sigmoid penalty
@@ -272,9 +276,22 @@ class AdvancedForecastEngine(ForecastEngine):
         """
         Simulates "What-If" scenarios using Causal Logic (Pearl's Do-Calculus).
         "What if we add 10 kits to this district?"
+        
+        FIXED: Robust handling of empty forecasts.
         """
-        # Baseline
+        # Baseline - FIX: Handle empty returns
         base_forecast = self.generate_god_forecast(30)
+        
+        if base_forecast.empty or 'Titan_Prediction' not in base_forecast.columns:
+            return {
+                "District": district_name,
+                "Baseline_Volume": 0,
+                "Intervention_Volume": 0,
+                "Net_Gain": 0,
+                "Fraud_Risk_Delta": "N/A",
+                "Strategic_Advice": "INSUFFICIENT DATA FOR SIMULATION"
+            }
+
         baseline_load = base_forecast['Titan_Prediction'].sum()
         
         # Intervention Effect (Estimated via Causal Coefficients)
