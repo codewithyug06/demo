@@ -98,7 +98,7 @@ Detecting "Ghost Centers" where enrolments are high but biometric refreshes are 
     ```
 
 ---
-##SENTINEL PRIME is not just an analysis tool; it is Digital Public Infrastructure. By fusing high-end AI with pragmatic administrative logic, we provide UIDAI with the capability to manage the identity lifecycle of 1.4 Billion citizens with unprecedented precision, fiscal responsibility, and ethical rigor.
+###SENTINEL PRIME is not just an analysis tool; it is Digital Public Infrastructure. By fusing high-end AI with pragmatic administrative logic, we provide UIDAI with the capability to manage the identity lifecycle of 1.4 Billion citizens with unprecedented precision, fiscal responsibility, and ethical rigor.
 
 ---
-##Sentinel Prime: Governance at the Speed of Thought. 🛡️🇮🇳
+###Sentinel Prime: Governance at the Speed of Thought. 🛡️🇮🇳
